@@ -99,7 +99,34 @@ const projectData = {
     { id: 3, name: 'Kitchen-Before03', type: 'JPG', project: 'Project Alpha', uploadedBy: 'S. Kerley' },
     { id: 4, name: 'Electrical Permit, Project Alpha #1283614-1', type: 'JPG', project: 'Project Alpha', uploadedBy: 'S. Kerley' },
     { id: 5, name: 'Garage-Before01', type: 'JPG', project: 'Project Alpha', uploadedBy: 'S. Kerley' },
-  ]
+  ],
+  financials: {
+    summary: {
+      totalBudget: 120000,
+      budgetAvailable: 85000,
+      drawsOut: 3,
+      drawCompleted: 4,
+      scopeComplete: 33
+    },
+    invoices: [
+      { id: '445123', due: '05/15/2025', status: 'Sent', statusColor: '#22C55E', brokerDate: '05/15/2025', brokerSignOff: '05/15/2025', amount: 54000 },
+      { id: '445124', due: '05/22/2025', status: 'Awaiting Sign', statusColor: '#EAB308', brokerDate: '05/20/2025', brokerSignOff: '05/21/2025', amount: 42750 },
+      { id: '445125', due: '05/10/2025', status: 'Approved', statusColor: '#22C55E', brokerDate: '05/08/2025', brokerSignOff: '05/09/2025', amount: 36200 },
+      { id: '445126', due: '05/05/2025', status: 'Paid', statusColor: '#22C55E', brokerDate: '05/02/2025', brokerSignOff: '05/03/2025', amount: 61450 },
+      { id: '445127', due: '06/01/2025', status: 'Sent', statusColor: '#22C55E', brokerDate: '05/30/2025', brokerSignOff: '05/31/2025', amount: 48000 },
+      { id: '445128', due: '05/28/2025', status: 'Overdue', statusColor: '#EF4444', brokerDate: '05/25/2025', brokerSignOff: '05/26/2025', amount: 27300 },
+      { id: '445129', due: '05/18/2025', status: 'Awaiting Sign', statusColor: '#EAB308', brokerDate: '05/16/2025', brokerSignOff: '05/17/2025', amount: 33800 },
+      { id: '445130', due: '05/20/2025', status: 'Approved', statusColor: '#22C55E', brokerDate: '05/17/2025', brokerSignOff: '05/18/2025', amount: 50000 },
+    ],
+    scope: [
+      { id: '445123', task: 'Cabinets Install', contractor: 'Killowen Construction', completed: 100, invoiceAmount: 4200, contractorAmount: 4200 },
+      { id: '445223', task: 'Flooring', contractor: 'Devlin Electrical', completed: 100, invoiceAmount: 5750, contractorAmount: 5750 },
+      { id: '445323', task: 'Electrical', contractor: 'Davison Plumbing & Sons', completed: 65, invoiceAmount: 8940, contractorAmount: 8940, needsUpdate: true },
+      { id: '445423', task: 'Roofing Patch', contractor: 'Hotshot HVAC', completed: 75, invoiceAmount: 2500, contractorAmount: 12500, needsUpdate: true },
+      { id: '445523', task: 'Windows', contractor: 'Apex Roofing Systems', completed: 80, invoiceAmount: 14800, contractorAmount: 14800, alert: true },
+      { id: '445623', task: 'Paint', contractor: 'Timberline Finish Carpentry', completed: 25, invoiceAmount: 18250, contractorAmount: 18250 },
+    ]
+  }
 }
 
 const tabs = [
@@ -126,9 +153,11 @@ function ProjectDetail({ user }) {
   const [activeNav, setActiveNav] = useState('projects')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
   const [expandedSections, setExpandedSections] = useState({
     timeline: true,
-    customer: true
+    customer: true,
+    scope: true
   })
   const [expandedContacts, setExpandedContacts] = useState({})
   const [editFormData, setEditFormData] = useState({
@@ -142,6 +171,10 @@ function ProjectDetail({ user }) {
     goBackDate: '',
     completionDate: '',
   })
+  const [invoiceFormData, setInvoiceFormData] = useState({
+    notes: '',
+    attachment: null
+  })
 
   const toggleContact = (contactId) => {
     setExpandedContacts(prev => ({
@@ -154,16 +187,21 @@ function ProjectDetail({ user }) {
     setEditFormData(prev => ({ ...prev, [field]: value }))
   }
 
+  const handleInvoiceFormChange = (field, value) => {
+    setInvoiceFormData(prev => ({ ...prev, [field]: value }))
+  }
+
   // Close modal on ESC key
   useEffect(() => {
     const handleEsc = (e) => {
-      if (e.key === 'Escape' && editModalOpen) {
-        setEditModalOpen(false)
+      if (e.key === 'Escape') {
+        if (editModalOpen) setEditModalOpen(false)
+        if (invoiceModalOpen) setInvoiceModalOpen(false)
       }
     }
     window.addEventListener('keydown', handleEsc)
     return () => window.removeEventListener('keydown', handleEsc)
-  }, [editModalOpen])
+  }, [editModalOpen, invoiceModalOpen])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -349,12 +387,22 @@ function ProjectDetail({ user }) {
             
             {/* Action Buttons */}
             <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
-              <button 
-                className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
-                style={{ backgroundColor: '#1D1D1F' }}
-              >
-                Send Message
-              </button>
+              {activeTab === 'financials' ? (
+                <button 
+                  onClick={() => setInvoiceModalOpen(true)}
+                  className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
+                  style={{ backgroundColor: '#1D1D1F' }}
+                >
+                  New Invoice
+                </button>
+              ) : (
+                <button 
+                  className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
+                  style={{ backgroundColor: '#1D1D1F' }}
+                >
+                  Send Message
+                </button>
+              )}
               <button 
                 onClick={() => setEditModalOpen(true)}
                 className="w-full lg:w-auto px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
@@ -478,6 +526,146 @@ function ProjectDetail({ user }) {
               </div>
             </div>
           </div>
+
+          {/* Financial Summary Cards - Only shown when Financials tab is selected */}
+          {activeTab === 'financials' && (
+            <div className="mb-6 -mr-4 lg:mr-0">
+              <div className="flex lg:grid lg:grid-cols-5 gap-4 overflow-x-auto snap-x snap-mandatory pr-4 lg:pr-0">
+                {/* Total Budget */}
+                <div 
+                  className="bg-white p-5 relative flex-shrink-0 min-w-[200px] lg:min-w-0 snap-start"
+                  style={{
+                    borderRadius: '16px',
+                    boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
+                  }}
+                >
+                  <p className="text-sm mb-1" style={{ color: '#1D1D1F' }}>Total Budget</p>
+                  <div className="flex items-baseline gap-1.5 mb-2">
+                    <span className="text-3xl font-semibold" style={{ color: '#1D1D1F' }}>
+                      ${(projectData.financials.summary.totalBudget / 1000).toFixed(0)}k
+                    </span>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="w-full h-1.5 bg-gray-100 rounded-full mb-2 overflow-hidden flex">
+                    <div className="h-full" style={{ width: '70%', backgroundColor: '#22C55E' }} />
+                    <div className="h-full" style={{ width: '30%', backgroundColor: '#3B82F6' }} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-500 truncate pr-2">70% Allocated • 30% Remaining</p>
+                    <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  </div>
+                </div>
+
+                {/* Budget Available */}
+                <div 
+                  className="bg-white p-5 relative flex-shrink-0 min-w-[200px] lg:min-w-0 snap-start"
+                  style={{
+                    borderRadius: '16px',
+                    boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
+                  }}
+                >
+                  <div className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#22C55E' }} />
+                  <p className="text-sm mb-1" style={{ color: '#1D1D1F' }}>Budget Available</p>
+                  <div className="flex items-baseline gap-1.5 mb-2">
+                    <span className="text-3xl font-semibold" style={{ color: '#1D1D1F' }}>
+                      ${(projectData.financials.summary.budgetAvailable / 1000).toFixed(0)}k
+                    </span>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="w-full h-1.5 bg-gray-100 rounded-full mb-2 overflow-hidden flex">
+                    <div className="h-full" style={{ width: '70%', backgroundColor: '#22C55E' }} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-500 truncate pr-2">View breakdown</p>
+                    <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  </div>
+                </div>
+
+                {/* Draws Out */}
+                <div 
+                  className="bg-white p-5 relative flex-shrink-0 min-w-[200px] lg:min-w-0 snap-start"
+                  style={{
+                    borderRadius: '16px',
+                    boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
+                  }}
+                >
+                  <div className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#EAB308' }} />
+                  <p className="text-sm mb-1" style={{ color: '#1D1D1F' }}>Draws Out</p>
+                  <div className="flex items-baseline gap-1.5 mb-2">
+                    <span className="text-3xl font-semibold" style={{ color: '#1D1D1F' }}>
+                      {projectData.financials.summary.drawsOut}
+                    </span>
+                    <span className="text-base font-bold" style={{ color: '#919191' }}>
+                      Projects
+                    </span>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="w-full h-1.5 bg-gray-100 rounded-full mb-2 overflow-hidden flex">
+                    <div className="h-full" style={{ width: '43%', backgroundColor: '#EAB308' }} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-500 truncate pr-2">View</p>
+                    <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  </div>
+                </div>
+
+                {/* Draw Completed */}
+                <div 
+                  className="bg-white p-5 relative flex-shrink-0 min-w-[200px] lg:min-w-0 snap-start"
+                  style={{
+                    borderRadius: '16px',
+                    boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
+                  }}
+                >
+                  <div className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#3B82F6' }} />
+                  <p className="text-sm mb-1" style={{ color: '#1D1D1F' }}>Draw Completed</p>
+                  <div className="flex items-baseline gap-1.5 mb-2">
+                    <span className="text-3xl font-semibold" style={{ color: '#1D1D1F' }}>
+                      {projectData.financials.summary.drawCompleted}
+                    </span>
+                    <span className="text-base font-bold" style={{ color: '#919191' }}>
+                      Projects
+                    </span>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="w-full h-1.5 bg-gray-100 rounded-full mb-2 overflow-hidden flex">
+                    <div className="h-full" style={{ width: '57%', backgroundColor: '#3B82F6' }} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-500 truncate pr-2">↑ 33% from last month</p>
+                    <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  </div>
+                </div>
+
+                {/* Scope */}
+                <div 
+                  className="bg-white p-5 relative flex-shrink-0 min-w-[200px] lg:min-w-0 snap-start"
+                  style={{
+                    borderRadius: '16px',
+                    boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
+                  }}
+                >
+                  <p className="text-sm mb-1" style={{ color: '#1D1D1F' }}>Scope</p>
+                  <div className="flex items-baseline gap-1.5 mb-2">
+                    <span className="text-3xl font-semibold" style={{ color: '#1D1D1F' }}>
+                      {projectData.financials.summary.scopeComplete}%
+                    </span>
+                    <span className="text-base font-bold" style={{ color: '#22C55E' }}>
+                      Complete
+                    </span>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="w-full h-1.5 bg-gray-100 rounded-full mb-2 overflow-hidden flex">
+                    <div className="h-full" style={{ width: `${projectData.financials.summary.scopeComplete}%`, backgroundColor: '#22C55E' }} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-500 truncate pr-2">View</p>
+                    <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Tabs + Tasks Section (connected) */}
           <div className="mb-6">
@@ -858,8 +1046,142 @@ function ProjectDetail({ user }) {
                 </div>
               )}
 
+              {/* Financials Tab Content */}
+              {activeTab === 'financials' && (
+                <div className="p-6">
+                  {/* Invoices Section */}
+                  <div className="mb-8">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+                      <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Invoices</h3>
+                      <div className="flex flex-col lg:flex-row gap-3">
+                        <div className="relative flex-1 lg:flex-none">
+                          <input
+                            type="text"
+                            placeholder="Search"
+                            className="w-full lg:w-64 pl-4 pr-10 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                          <SearchIcon className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        </div>
+                        <select 
+                          className="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+                          style={{ 
+                            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, 
+                            backgroundPosition: 'right 0.75rem center', 
+                            backgroundRepeat: 'no-repeat', 
+                            backgroundSize: '1.25em 1.25em',
+                            paddingRight: '2.5rem'
+                          }}
+                        >
+                          <option>All</option>
+                          <option>Sent</option>
+                          <option>Awaiting Sign</option>
+                          <option>Approved</option>
+                          <option>Paid</option>
+                          <option>Overdue</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Invoices Table - Desktop */}
+                    <div className="hidden lg:block overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-gray-100">
+                            <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice #</th>
+                            <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Due</th>
+                            <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice Status</th>
+                            <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Broker Date</th>
+                            <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Broker Sign Off</th>
+                            <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {projectData.financials.invoices.map((invoice) => (
+                            <tr key={invoice.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="py-3 px-4">
+                                <span className="text-sm font-medium underline cursor-pointer" style={{ color: '#1D1D1F' }}>{invoice.id}</span>
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className="text-sm text-gray-600 flex items-center gap-1">
+                                  {invoice.due} <CalendarIcon className="w-4 h-4 text-gray-400" />
+                                </span>
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className="text-sm" style={{ color: invoice.statusColor }}>{invoice.status}</span>
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className="text-sm text-gray-600 flex items-center gap-1">
+                                  {invoice.brokerDate} <CalendarIcon className="w-4 h-4 text-gray-400" />
+                                </span>
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className="text-sm text-gray-600 flex items-center gap-1">
+                                  {invoice.brokerSignOff} <CalendarIcon className="w-4 h-4 text-gray-400" />
+                                </span>
+                              </td>
+                              <td className="py-3 px-4">
+                                <span className="text-sm text-gray-900">${invoice.amount.toLocaleString()}.00</span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Invoices List - Mobile */}
+                    <div className="lg:hidden divide-y divide-gray-100">
+                      {projectData.financials.invoices.map((invoice) => (
+                        <div 
+                          key={invoice.id}
+                          className="flex items-center justify-between py-3"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-5 h-5 rounded-full border-2 border-gray-300" />
+                            <span className="text-sm font-medium" style={{ color: '#1D1D1F' }}>{invoice.id}</span>
+                          </div>
+                          <ChevronRightIcon className="w-5 h-5 text-gray-400" />
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Pagination */}
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+                      <span className="text-sm text-gray-500">1 - 8 of 40</span>
+                      <div className="flex items-center gap-2">
+                        <select 
+                          className="px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none"
+                          style={{ 
+                            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, 
+                            backgroundPosition: 'right 0.25rem center', 
+                            backgroundRepeat: 'no-repeat', 
+                            backgroundSize: '1em 1em',
+                            paddingRight: '1.5rem',
+                            appearance: 'none'
+                          }}
+                        >
+                          <option>1</option>
+                          <option>2</option>
+                          <option>3</option>
+                          <option>4</option>
+                          <option>5</option>
+                        </select>
+                        <span className="text-sm text-gray-500">of 5 pages</span>
+                        <div className="flex items-center gap-1 ml-2">
+                          <button className="p-1 hover:bg-gray-100 rounded transition-colors">
+                            <ChevronLeftIcon className="w-4 h-4 text-gray-400" />
+                          </button>
+                          <button className="p-1 hover:bg-gray-100 rounded transition-colors">
+                            <ChevronRightIcon className="w-4 h-4 text-gray-400" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Placeholder for other tabs */}
-              {!['overview', 'contacts', 'files'].includes(activeTab) && (
+              {!['overview', 'contacts', 'files', 'financials'].includes(activeTab) && (
                 <div className="hidden lg:block p-12 text-center">
                   <p className="text-gray-500">
                     {tabs.find(t => t.id === activeTab)?.label} content coming soon...
@@ -868,6 +1190,128 @@ function ProjectDetail({ user }) {
               )}
             </div>
           </div>
+
+          {/* Scope Section - Only shown on Financials tab */}
+          {activeTab === 'financials' && (
+            <div 
+              className="bg-white mb-6"
+              style={{ borderRadius: '16px', boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)' }}
+            >
+              <div 
+                className="p-6 flex items-center justify-between cursor-pointer"
+                onClick={() => toggleSection('scope')}
+              >
+                <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Scope</h3>
+                <ChevronUpIcon className={`w-5 h-5 text-gray-400 transition-transform ${expandedSections.scope ? '' : 'rotate-180'}`} />
+              </div>
+
+              {expandedSections.scope && (
+                <>
+                  {/* Scope Table - Desktop */}
+                  <div className="hidden lg:block overflow-x-auto border-t border-gray-100 px-6">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Task & Details</th>
+                          <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Contractor</th>
+                          <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Completed %</th>
+                          <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice Amount</th>
+                          <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Contractor Amount</th>
+                          <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Download</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {projectData.financials.scope.map((item) => (
+                          <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="py-3">
+                              <span className="text-sm text-gray-900">{item.id} {item.task}</span>
+                            </td>
+                            <td className="py-3">
+                              <div className="flex items-center gap-1">
+                                <span className="text-sm text-gray-600">{item.contractor}</span>
+                                <ChevronDownIcon className="w-4 h-4 text-gray-400" />
+                              </div>
+                            </td>
+                            <td className="py-3">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-sm ${item.completed === 100 ? 'text-green-600' : item.completed >= 50 ? 'text-yellow-600' : 'text-gray-600'}`}>
+                                  {item.completed === 100 ? '100%' : item.completed >= 50 ? '50-90%' : '0-49%'}
+                                </span>
+                                <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                  <div 
+                                    className="h-full rounded-full"
+                                    style={{ 
+                                      width: `${item.completed}%`,
+                                      backgroundColor: item.completed === 100 ? '#22C55E' : item.completed >= 50 ? '#EAB308' : '#9CA3AF'
+                                    }}
+                                  />
+                                </div>
+                                {item.alert && <AlertIcon className="w-4 h-4 text-red-500" />}
+                              </div>
+                            </td>
+                            <td className="py-3">
+                              <span className="text-sm text-gray-600">${item.invoiceAmount.toLocaleString()}.00</span>
+                            </td>
+                            <td className="py-3">
+                              <span className="text-sm text-gray-600">${item.contractorAmount.toLocaleString()}.00</span>
+                            </td>
+                            <td className="py-3">
+                              <button className="text-sm text-blue-600 underline hover:text-blue-800">Download Report</button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Scope List - Mobile */}
+                  <div className="lg:hidden divide-y divide-gray-100 border-t border-gray-100">
+                    {projectData.financials.scope.map((item) => (
+                      <div 
+                        key={item.id}
+                        className="flex items-center justify-between px-6 py-3"
+                      >
+                        <span className="text-sm text-gray-900">{item.id} {item.task}</span>
+                        <ChevronRightIcon className="w-5 h-5 text-gray-400" />
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Scope Pagination */}
+                  <div className="flex items-center justify-between p-6 border-t border-gray-100">
+                    <span className="text-sm text-gray-500">1 - 6 of 24</span>
+                    <div className="flex items-center gap-2">
+                      <select 
+                        className="px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none"
+                        style={{ 
+                          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, 
+                          backgroundPosition: 'right 0.25rem center', 
+                          backgroundRepeat: 'no-repeat', 
+                          backgroundSize: '1em 1em',
+                          paddingRight: '1.5rem',
+                          appearance: 'none'
+                        }}
+                      >
+                        <option>1</option>
+                        <option>2</option>
+                        <option>3</option>
+                        <option>4</option>
+                      </select>
+                      <span className="text-sm text-gray-500">of 4 pages</span>
+                      <div className="flex items-center gap-1 ml-2">
+                        <button className="p-1 hover:bg-gray-100 rounded transition-colors">
+                          <ChevronLeftIcon className="w-4 h-4 text-gray-400" />
+                        </button>
+                        <button className="p-1 hover:bg-gray-100 rounded transition-colors">
+                          <ChevronRightIcon className="w-4 h-4 text-gray-400" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Project Timeline Section */}
           <div 
@@ -1280,6 +1724,97 @@ function ProjectDetail({ user }) {
           </div>
         </div>
       )}
+
+      {/* New Invoice Modal */}
+      {invoiceModalOpen && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={() => setInvoiceModalOpen(false)}
+        >
+          <div 
+            className="bg-white w-full max-w-md max-h-[90vh] overflow-y-auto"
+            style={{ borderRadius: '16px', boxShadow: '2px 4px 24px rgba(0, 0, 0, 0.15)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <h2 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>New Invoice</h2>
+              <button 
+                onClick={() => setInvoiceModalOpen(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <CloseIcon className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Notes:</label>
+                <textarea
+                  placeholder="Lorem ipsum dolor sit amet, vince adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+                  value={invoiceFormData.notes}
+                  onChange={(e) => handleInvoiceFormChange('notes', e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                />
+              </div>
+
+              {/* Attach Proof */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Attach Proof:</label>
+                <div 
+                  className="border border-gray-200 rounded-lg p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={() => document.getElementById('invoice-file-input').click()}
+                >
+                  <span className="text-sm text-gray-500">Drag and drop or browse (PDF, PNG, JPG)</span>
+                  <AttachmentIcon className="w-5 h-5 text-gray-400" />
+                </div>
+                <input
+                  id="invoice-file-input"
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  className="hidden"
+                  onChange={(e) => handleInvoiceFormChange('attachment', e.target.files[0])}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4">
+                <button 
+                  onClick={() => setInvoiceModalOpen(false)}
+                  className="flex-1 px-6 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors"
+                  style={{ color: '#111111', border: '1px solid #111111' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#111111'
+                    e.currentTarget.style.color = '#FFFFFF'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent'
+                    e.currentTarget.style.color = '#111111'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    // Handle submit logic here
+                    console.log('Submitting invoice:', invoiceFormData)
+                    setInvoiceModalOpen(false)
+                    setInvoiceFormData({ notes: '', attachment: null })
+                  }}
+                  className="flex-1 px-6 py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-colors"
+                  style={{ backgroundColor: '#1D1D1F' }}
+                >
+                  Submit
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1490,6 +2025,30 @@ function DownloadIcon({ className }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+    </svg>
+  )
+}
+
+function ChevronDownIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+    </svg>
+  )
+}
+
+function AlertIcon({ className }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 20 20">
+      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
+function AttachmentIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
     </svg>
   )
 }
