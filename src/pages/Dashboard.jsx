@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 // Mock data based on design
@@ -103,12 +104,25 @@ const navItems = [
 ]
 
 function Dashboard({ user }) {
+  const navigate = useNavigate()
   const [completedTasks, setCompletedTasks] = useState(new Set())
   const [activeNav, setActiveNav] = useState('dashboard')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
+  }
+
+  const handleNavClick = (navId) => {
+    setActiveNav(navId)
+    setMobileMenuOpen(false)
+    const routes = {
+      dashboard: '/',
+      projects: '/projects',
+      reports: '/reports',
+      profiles: '/profiles',
+    }
+    navigate(routes[navId] || '/')
   }
 
   const toggleTask = (taskId) => {
@@ -175,10 +189,7 @@ function Dashboard({ user }) {
             {navItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => {
-                  setActiveNav(item.id)
-                  setMobileMenuOpen(false)
-                }}
+                onClick={() => handleNavClick(item.id)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left mb-1 transition-colors ${
                   activeNav === item.id 
                     ? 'bg-gray-100 font-medium' 

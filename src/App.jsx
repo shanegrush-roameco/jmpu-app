@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Projects from './pages/Projects'
+import ProjectDetail from './pages/ProjectDetail'
 
 function App() {
   const [session, setSession] = useState(null)
@@ -49,6 +51,14 @@ function App() {
         <Route 
           path="/" 
           element={session ? <Dashboard user={session.user} /> : <Navigate to="/login" replace />} 
+        />
+        <Route 
+          path="/projects" 
+          element={session ? <Projects user={session.user} /> : <Navigate to="/login" replace />} 
+        />
+        <Route 
+          path="/projects/:projectId" 
+          element={session ? <ProjectDetail user={session.user} /> : <Navigate to="/login" replace />} 
         />
         {/* Catch all - redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />

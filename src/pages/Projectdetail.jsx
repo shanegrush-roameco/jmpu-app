@@ -1,0 +1,1497 @@
+import { useState, useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
+
+// Mock project data
+const projectData = {
+  id: '1283614-1',
+  name: 'Project Alpha',
+  status: 'On Hold',
+  statusColor: '#EAB308',
+  estimatedCompletion: '07/02/2025',
+  currentPhase: 'Work in Progress OH',
+  phases: [
+    { id: 1, name: 'Bidding', status: 'complete', color: '#22C55E' },
+    { id: 2, name: 'Pending Approval', status: 'complete', color: '#22C55E' },
+    { id: 3, name: 'Scheduling', status: 'complete', color: '#22C55E' },
+    { id: 4, name: 'Work in Progress', status: 'current', color: '#22C55E', note: 'OH' },
+    { id: 5, name: 'Sent For QC', status: 'pending', color: '#E5E7EB' },
+    { id: 6, name: 'Pending Broker', status: 'pending', color: '#E5E7EB' },
+    { id: 7, name: 'Complete', status: 'pending', color: '#E5E7EB' },
+  ],
+  phaseTooltip: {
+    title: 'On Hold',
+    reason: 'Reason For Hold',
+    description: 'Example Lorem Ipsum',
+    link: 'See Report'
+  },
+  tasks: [
+    { id: 1, name: 'Inspect Job Site A', dueDate: '05/20/2025', actualDate: '05/18/2025', daysStatus: '2 Days Early', daysStatusType: 'early', note: 'No issues found.' },
+    { id: 2, name: 'Demo Interior Walls', dueDate: '05/22/2025', actualDate: '05/25/2025', daysStatus: '3 Days Past Due', daysStatusType: 'late', note: 'Ran into delays with dumpster delivery.' },
+    { id: 3, name: 'Electrical Rough In', dueDate: '05/28/2025', actualDate: '--', daysStatus: '5 Days Remaining', daysStatusType: 'pending', note: 'Scheduled and confirmed with contractor.' },
+    { id: 4, name: 'HVAC Ductwork Install', dueDate: '06/01/2025', actualDate: '--', daysStatus: '9 Days Remaining', daysStatusType: 'pending', note: 'Awaiting permit approval.' },
+    { id: 5, name: 'Cabinet Install', dueDate: '05/10/2025', actualDate: '05/15/2025', daysStatus: '5 Days Past Due', daysStatusType: 'late', note: 'Short one cabinet panel, reordered.' },
+    { id: 6, name: 'Flooring Delivery', dueDate: '05/12/2025', actualDate: '05/11/2025', daysStatus: '1 Day Early', daysStatusType: 'early', note: 'Delivered and staged on site.' },
+    { id: 7, name: 'Final Paint Walkthrough', dueDate: '04/30/2025', actualDate: '04/30/2025', daysStatus: 'On Time', daysStatusType: 'ontime', note: 'Completed on schedule.' },
+    { id: 8, name: 'Final Inspection Request', dueDate: '05/30/2025', actualDate: '--', daysStatus: '12 Days Remaining', daysStatusType: 'pending', note: 'Request form submitted to city office.' },
+  ],
+  timeline: {
+    month: 'October 2024',
+    weeks: [
+      { label: 'Week 1', dates: '09 - 15 OCT', days: ['09', '10', '11', '12', '13', '14', '15'] },
+      { label: 'Week 2', dates: '16 - 22 OCT', days: ['16', '17', '18', '19', '20', '21', '22'] },
+      { label: 'Week 3', dates: '23 - 29 OCT', days: ['23', '24', '25', '26', '27', '28', '29'] },
+      { label: 'Week 4', dates: '30 OCT - 05 NOV', days: ['30', '31', '01', '02', '03', '04', '05'] },
+      { label: 'Week 5', dates: '06 - 12 NOV', days: ['06', '07', '08', '09', '10', '11', '12'] },
+      { label: 'Week 6', dates: '13 - 19 NOV', days: ['13', '14', '15', '16', '17', '18', '19'] },
+    ],
+    phases: [
+      { name: 'Bidding', start: 0, duration: 1, row: 0, color: '#FEE2E2' },
+      { name: 'Pending Approval', start: 0.8, duration: 1.2, row: 1, color: '#FEF3C7' },
+      { name: 'Scheduling', start: 1.5, duration: 1, row: 2, color: '#FEF3C7' },
+      { name: 'Work in Progress', start: 2.2, duration: 2, row: 3, color: '#DCFCE7' },
+      { name: 'On Hold', start: 2.8, duration: 0.6, row: 4, color: '#FEE2E2', isMarker: true },
+      { name: 'Sent For QC', start: 4, duration: 1, row: 5, color: '#E5E7EB' },
+      { name: 'Pending Broker', start: 5, duration: 1, row: 6, color: '#E5E7EB' },
+    ]
+  },
+  customer: {
+    company: 'Freddie Mac',
+    pointOfContact: 'Shawn Ryan',
+    phone: '(385) 204-4570',
+    email: 'first.last@domain.com',
+    workTypes: [
+      { name: 'Electrical', color: '#1F2937' },
+      { name: 'Plumbing', color: '#3B82F6' },
+      { name: 'Roofing', color: '#22C55E' },
+      { name: 'Flooring', color: '#EAB308' },
+      { name: 'Paint', color: '#6B7280' },
+    ],
+    lockboxCode: 'XXXX'
+  },
+  contacts: [
+    {
+      id: 1,
+      company: 'Killowen Construction',
+      status: 'active',
+      role: 'GC',
+      roleColor: '#1F2937',
+      pointOfContact: 'Tyler Farrel',
+      phone: '(385) 204-4570',
+      email: 'first.last@domain.com',
+      lockboxCode: 'XXXX'
+    },
+    {
+      id: 2,
+      company: 'Freddie Mac',
+      status: 'warning',
+      role: 'Customer',
+      roleColor: '#22C55E',
+      pointOfContact: 'Shawn Ryan',
+      phone: '(385) 204-4570',
+      email: 'first.last@domain.com',
+      lockboxCode: 'XXXX'
+    }
+  ],
+  files: [
+    { id: 1, name: 'Kitchen-Before01', type: 'JPG', project: 'Project Alpha', uploadedBy: 'S. Kerley' },
+    { id: 2, name: 'Kitchen-Before02', type: 'JPG', project: 'Project Alpha', uploadedBy: 'S. Kerley' },
+    { id: 3, name: 'Kitchen-Before03', type: 'JPG', project: 'Project Alpha', uploadedBy: 'S. Kerley' },
+    { id: 4, name: 'Electrical Permit, Project Alpha #1283614-1', type: 'JPG', project: 'Project Alpha', uploadedBy: 'S. Kerley' },
+    { id: 5, name: 'Garage-Before01', type: 'JPG', project: 'Project Alpha', uploadedBy: 'S. Kerley' },
+  ]
+}
+
+const tabs = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'messages', label: 'Messages' },
+  { id: 'financials', label: 'Financials' },
+  { id: 'permits', label: 'Permits' },
+  { id: 'contractors', label: 'Contractors' },
+  { id: 'contacts', label: 'Contacts' },
+  { id: 'files', label: 'Files & Notes' },
+]
+
+const navItems = [
+  { id: 'dashboard', label: 'Dashboard', icon: 'home' },
+  { id: 'projects', label: 'Projects', icon: 'folder', active: true },
+  { id: 'reports', label: 'Reports', icon: 'chart' },
+  { id: 'profiles', label: 'Profiles', icon: 'users' },
+]
+
+function ProjectDetail({ user }) {
+  const navigate = useNavigate()
+  const { projectId } = useParams()
+  const [activeTab, setActiveTab] = useState('overview')
+  const [activeNav, setActiveNav] = useState('projects')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [expandedSections, setExpandedSections] = useState({
+    timeline: true,
+    customer: true
+  })
+  const [expandedContacts, setExpandedContacts] = useState({})
+  const [editFormData, setEditFormData] = useState({
+    biddingDate: '',
+    pendingDate: '',
+    schedulingDate: '',
+    workInProgressDate1: '',
+    workInProgressDate2: '',
+    sentForQCDate: '',
+    pendingBroker: '',
+    goBackDate: '',
+    completionDate: '',
+  })
+
+  const toggleContact = (contactId) => {
+    setExpandedContacts(prev => ({
+      ...prev,
+      [contactId]: !prev[contactId]
+    }))
+  }
+
+  const handleEditFormChange = (field, value) => {
+    setEditFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  // Close modal on ESC key
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape' && editModalOpen) {
+        setEditModalOpen(false)
+      }
+    }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [editModalOpen])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+  }
+
+  const getInitials = (name) => {
+    if (!name) return 'U'
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+  }
+
+  const userName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User'
+
+  const handleNavClick = (navId) => {
+    setActiveNav(navId)
+    setMobileMenuOpen(false)
+    const routes = {
+      dashboard: '/',
+      projects: '/projects',
+      reports: '/reports',
+      profiles: '/profiles',
+    }
+    navigate(routes[navId] || '/')
+  }
+
+  const toggleSection = (section) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }))
+  }
+
+  const getDaysStatusStyle = (type) => {
+    switch (type) {
+      case 'early':
+        return 'text-green-600'
+      case 'late':
+        return 'text-red-600'
+      case 'ontime':
+        return 'text-gray-600'
+      default:
+        return 'text-gray-500'
+    }
+  }
+
+  return (
+    <div className="h-screen flex overflow-hidden" style={{ backgroundColor: '#F4F4F4' }}>
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 w-[200px] bg-white flex flex-col flex-shrink-0 h-full pt-6 pl-4 pr-0
+        transform transition-transform duration-300 ease-in-out
+        lg:relative lg:translate-x-0
+        ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <button 
+          className="absolute top-4 right-4 p-2 lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <CloseIcon className="w-5 h-5 text-gray-500" />
+        </button>
+
+        <h1 className="text-xl font-bold mb-6 text-center pr-4" style={{ color: '#1D1D1F' }}>JMP</h1>
+
+        <div 
+          className="flex-1 px-4 py-5 flex flex-col"
+          style={{ 
+            borderTop: '1px solid #E8E8E8',
+            borderLeft: '1px solid #E8E8E8',
+            borderBottom: '1px solid #E8E8E8',
+            borderRight: 'none',
+            borderTopLeftRadius: '16px',
+            borderBottomLeftRadius: '16px'
+          }}
+        >
+          <nav className="flex-1">
+            {navItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => handleNavClick(item.id)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left mb-1 transition-colors ${
+                  activeNav === item.id 
+                    ? 'bg-gray-100 font-medium' 
+                    : 'hover:bg-gray-50'
+                }`}
+                style={{ color: activeNav === item.id ? '#1D1D1F' : '#6B7280' }}
+              >
+                <NavIcon name={item.icon} active={activeNav === item.id} />
+                <span className="text-sm">{item.label}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        <div className="py-4">
+          <button 
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
+            style={{ color: '#6B7280' }}
+          >
+            <NavIcon name="settings" />
+            <span className="text-sm">Settings</span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col h-full overflow-hidden w-full">
+        {/* Desktop Header */}
+        <header className="hidden lg:flex bg-white border-b border-gray-100 px-8 py-4 items-center justify-between flex-shrink-0">
+          <div className="flex-1 max-w-xl">
+            <div className="relative">
+              <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search"
+                className="w-full pl-12 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <button className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors" style={{ color: '#161616' }}>
+              <BellIcon className="w-5 h-5" />
+            </button>
+            <div 
+              className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium cursor-pointer"
+              style={{ color: '#111111', border: '1px solid #111111' }}
+              onClick={handleLogout}
+              title="Click to logout"
+            >
+              {getInitials(userName)}
+            </div>
+          </div>
+        </header>
+
+        {/* Mobile Header */}
+        <header className="flex lg:hidden bg-white border-b border-gray-100 px-4 py-3 items-center justify-between flex-shrink-0 relative">
+          <button className="p-2 -ml-2 z-10" onClick={() => setMobileMenuOpen(true)}>
+            <HamburgerIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
+          </button>
+          <h1 className="absolute left-1/2 -translate-x-1/2 text-lg font-bold" style={{ color: '#1D1D1F' }}>JMP</h1>
+          <div className="flex items-center gap-2 z-10">
+            <button className="p-2">
+              <SearchIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
+            </button>
+            <div 
+              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium cursor-pointer"
+              style={{ color: '#111111', border: '1px solid #111111' }}
+              onClick={handleLogout}
+            >
+              {getInitials(userName)}
+            </div>
+          </div>
+        </header>
+
+        {/* Page Content */}
+        <div className="flex-1 overflow-y-auto p-4 lg:p-8">
+          {/* Project Header */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-6 gap-4">
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={() => navigate('/projects')}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors lg:hidden"
+              >
+                <ChevronLeftIcon className="w-5 h-5 text-gray-500" />
+              </button>
+              <h2 className="text-xl lg:text-2xl font-semibold" style={{ color: '#1D1D1F' }}>
+                {projectData.name} #{projectData.id}
+              </h2>
+              {/* Avatar on desktop */}
+              <div className="hidden lg:flex items-center gap-2 ml-2">
+                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium">
+                  JV
+                </div>
+              </div>
+            </div>
+            
+            {/* Action Buttons */}
+            <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
+              <button 
+                className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
+                style={{ backgroundColor: '#1D1D1F' }}
+              >
+                Send Message
+              </button>
+              <button 
+                onClick={() => setEditModalOpen(true)}
+                className="w-full lg:w-auto px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
+                style={{ color: '#111111', border: '1px solid #111111' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#111111'
+                  e.currentTarget.style.color = '#FFFFFF'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent'
+                  e.currentTarget.style.color = '#111111'
+                }}
+              >
+                Edit Project
+              </button>
+              <button 
+                className="w-full lg:w-auto px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
+                style={{ color: '#111111', border: '1px solid #111111' }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#111111'
+                  e.currentTarget.style.color = '#FFFFFF'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = 'transparent'
+                  e.currentTarget.style.color = '#111111'
+                }}
+              >
+                AI Summary
+              </button>
+            </div>
+          </div>
+
+          {/* Project Phases Card */}
+          <div 
+            className="bg-white p-6 mb-6"
+            style={{ borderRadius: '16px', boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)' }}
+          >
+            <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-4">
+              <div>
+                <h3 className="text-base font-semibold mb-2" style={{ color: '#1D1D1F' }}>Project Phases</h3>
+                {/* Mobile: Simple status */}
+                <div className="lg:hidden">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm text-gray-600">Status: {projectData.status}</span>
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: projectData.statusColor }} />
+                  </div>
+                  <p className="text-sm text-gray-500">Estimated Completion: {projectData.estimatedCompletion}</p>
+                </div>
+              </div>
+              
+              {/* Desktop: Status info */}
+              <div className="hidden lg:flex items-center gap-6">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">Status: {projectData.status}</span>
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: projectData.statusColor }} />
+                </div>
+                <span className="text-sm text-gray-600">Estimated Completion: {projectData.estimatedCompletion}</span>
+              </div>
+            </div>
+
+            {/* Phase of Project Label */}
+            <div className="mb-4">
+              <div className="flex items-baseline gap-2">
+                <span className="text-3xl font-bold" style={{ color: '#1D1D1F' }}>AD</span>
+                <span className="text-sm text-gray-500">Phase of Project</span>
+              </div>
+            </div>
+
+            {/* Desktop: Full Phase Stepper */}
+            <div className="hidden lg:block">
+              <div className="relative">
+                {/* Progress Line */}
+                <div className="absolute top-3 left-0 right-0 h-1 bg-gray-200 rounded-full" />
+                <div className="absolute top-3 left-0 h-1 bg-green-500 rounded-full" style={{ width: '45%' }} />
+                
+                {/* Phase Dots */}
+                <div className="relative flex justify-between">
+                  {projectData.phases.map((phase, index) => (
+                    <div key={phase.id} className="flex flex-col items-center" style={{ width: `${100 / projectData.phases.length}%` }}>
+                      <div 
+                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center z-10 ${
+                          phase.status === 'complete' ? 'bg-green-500 border-green-500' :
+                          phase.status === 'current' ? 'bg-green-500 border-green-500' :
+                          'bg-white border-gray-300'
+                        }`}
+                      >
+                        {phase.status === 'complete' && (
+                          <CheckIcon className="w-3 h-3 text-white" />
+                        )}
+                        {phase.status === 'current' && (
+                          <div className="w-2 h-2 bg-white rounded-full" />
+                        )}
+                      </div>
+                      <span className={`text-xs mt-2 text-center ${
+                        phase.status === 'pending' ? 'text-gray-400' : 'text-gray-700'
+                      }`}>
+                        {phase.name} {phase.note && <span className="text-yellow-600">{phase.note}</span>}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile: Simplified Phase Indicator */}
+            <div className="lg:hidden">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs text-green-600 font-medium">Today</span>
+              </div>
+              <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div className="absolute left-0 top-0 h-full bg-green-500 rounded-full" style={{ width: '45%' }} />
+                <div 
+                  className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-yellow-500 rounded-full border-2 border-white"
+                  style={{ left: '45%' }}
+                />
+              </div>
+              <div className="flex justify-between mt-2">
+                <span className="text-xs text-gray-500">SCH</span>
+                <span className="text-xs text-yellow-600">OH</span>
+                <span className="text-xs text-gray-500">WIP</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs + Tasks Section (connected) */}
+          <div className="mb-6">
+            {/* Desktop Tabs */}
+            <div className="hidden lg:flex items-end gap-2">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className="text-base whitespace-nowrap transition-all"
+                  style={{ 
+                    padding: activeTab === tab.id ? '16px 40px 8px 40px' : '8px 40px 8px 40px',
+                    borderRadius: '8px 8px 0 0',
+                    backgroundColor: '#FFFFFF',
+                    borderBottom: activeTab === tab.id ? 'none' : '1px solid #F4F4F4',
+                    fontWeight: activeTab === tab.id ? '700' : '400',
+                    color: activeTab === tab.id ? '#1D1D1F' : '#808080'
+                  }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab Content Container */}
+            <div 
+              className="bg-white rounded-2xl lg:rounded-none lg:rounded-tr-2xl lg:rounded-br-2xl lg:rounded-bl-2xl"
+              style={{ 
+                boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
+              }}
+            >
+              {/* Mobile: Header with dropdown (shown on all tabs) */}
+              <div className="lg:hidden p-6 pb-4">
+                <h3 className="text-lg font-semibold mb-4" style={{ color: '#1D1D1F' }}>
+                  {tabs.find(t => t.id === activeTab)?.label || 'Overview'}
+                </h3>
+                
+                {/* Search */}
+                <div className="relative mb-3">
+                  <input
+                    type="text"
+                    placeholder="Search"
+                    className="w-full pl-4 pr-10 py-3 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <SearchIcon className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
+                </div>
+
+                {/* Tab Dropdown */}
+                <select
+                  value={activeTab}
+                  onChange={(e) => setActiveTab(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+                  style={{ 
+                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, 
+                    backgroundPosition: 'right 1rem center', 
+                    backgroundRepeat: 'no-repeat', 
+                    backgroundSize: '1.5em 1.5em' 
+                  }}
+                >
+                  {tabs.map((tab) => (
+                    <option key={tab.id} value={tab.id}>{tab.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Overview Tab Content (Tasks) */}
+              {activeTab === 'overview' && (
+                <>
+                  {/* Desktop: Tasks header */}
+                  <div className="hidden lg:block p-6 pb-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Tasks</h3>
+                      <div className="flex items-center gap-2">
+                        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                          <FilterIcon className="w-4 h-4 text-gray-500" />
+                        </button>
+                        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                          <GridIcon className="w-4 h-4 text-gray-500" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+            {/* Desktop Table */}
+            <div className="hidden lg:block overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-t border-gray-100">
+                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Actual Date</th>
+                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Days Early / Pass</th>
+                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Status Note</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {projectData.tasks.map((task) => (
+                    <tr key={task.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="py-4 px-6">
+                        <span className="text-sm text-gray-900">{task.name}</span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className="text-sm text-gray-600">{task.dueDate}</span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className="text-sm text-gray-600">{task.actualDate}</span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className={`text-sm flex items-center gap-1 ${getDaysStatusStyle(task.daysStatusType)}`}>
+                          {task.daysStatusType === 'late' && <WarningIcon className="w-4 h-4" />}
+                          {task.daysStatus}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <span className="text-sm text-gray-600">{task.note}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile List */}
+            <div className="lg:hidden divide-y divide-gray-100">
+              {projectData.tasks.map((task) => (
+                <div 
+                  key={task.id}
+                  className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer"
+                >
+                  <span className="text-sm text-gray-900">{task.name}</span>
+                  <ChevronRightIcon className="w-5 h-5 text-gray-400" />
+                </div>
+              ))}
+            </div>
+                </>
+              )}
+
+              {/* Contacts Tab Content */}
+              {activeTab === 'contacts' && (
+                <div>
+                  {projectData.contacts.map((contact, index) => (
+                    <div 
+                      key={contact.id} 
+                      className={`p-6 ${index !== projectData.contacts.length - 1 ? 'border-b border-gray-100' : ''}`}
+                    >
+                      {/* Contact Header */}
+                      <div 
+                        className="flex items-center justify-between cursor-pointer"
+                        onClick={() => toggleContact(contact.id)}
+                      >
+                        <div className="flex items-center gap-3 flex-wrap">
+                          <h4 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>{contact.company}</h4>
+                          <div 
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: contact.status === 'active' ? '#22C55E' : '#EAB308' }}
+                          />
+                          <span 
+                            className="px-2 py-1 rounded text-xs font-medium text-white flex items-center gap-1"
+                            style={{ backgroundColor: contact.roleColor }}
+                          >
+                            <WrenchIcon className="w-3 h-3" />
+                            {contact.role}
+                          </span>
+                        </div>
+                        <ChevronUpIcon 
+                          className={`w-5 h-5 text-gray-400 transition-transform ${
+                            expandedContacts[contact.id] !== false ? '' : 'rotate-180'
+                          }`} 
+                        />
+                      </div>
+
+                      {/* Contact Details (collapsible) */}
+                      {expandedContacts[contact.id] !== false && (
+                        <div className="mt-6 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+                          {/* Contact Info */}
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-2">
+                              <UserIcon className="w-4 h-4 text-gray-400" />
+                              <span className="text-sm text-gray-600">
+                                <span className="font-medium">Point of Contact</span> {contact.pointOfContact}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <PhoneIcon className="w-4 h-4 text-gray-400" />
+                              <span className="text-sm text-gray-600">
+                                <span className="font-medium">Phone:</span> {contact.phone}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <EmailIcon className="w-4 h-4 text-gray-400" />
+                              <span className="text-sm text-gray-600">
+                                <span className="font-medium">Email:</span> {contact.email}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="flex flex-col gap-2">
+                            <button 
+                              className="px-4 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                              style={{ color: '#111111', border: '1px solid #E5E7EB', minWidth: '262px' }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#F9FAFB'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent'
+                              }}
+                            >
+                              <PhoneIcon className="w-4 h-4" />
+                              Call
+                            </button>
+                            <button 
+                              className="px-4 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                              style={{ color: '#111111', border: '1px solid #E5E7EB', minWidth: '262px' }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#F9FAFB'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent'
+                              }}
+                            >
+                              <EmailIcon className="w-4 h-4" />
+                              Send Message
+                            </button>
+                            <button 
+                              className="px-4 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                              style={{ color: '#111111', border: '1px solid #E5E7EB', minWidth: '262px' }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#F9FAFB'
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent'
+                              }}
+                            >
+                              Lockbox Code: {contact.lockboxCode}
+                              <CopyIcon className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Files & Notes Tab Content */}
+              {activeTab === 'files' && (
+                <div className="p-6">
+                  {/* Drag & Drop Zone */}
+                  <div 
+                    className="border-2 border-dashed border-gray-300 rounded-lg p-8 lg:p-12 text-center mb-8"
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      e.currentTarget.classList.add('border-blue-400', 'bg-blue-50')
+                    }}
+                    onDragLeave={(e) => {
+                      e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50')
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50')
+                      // Handle file drop here
+                      console.log('Files dropped:', e.dataTransfer.files)
+                    }}
+                  >
+                    <h3 className="text-lg font-semibold mb-2" style={{ color: '#1D1D1F' }}>
+                      Drag & Drop Files here
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      Files Supported - .XLS, .PDF, .HEIC, .JPG, .PNG
+                    </p>
+                    <button 
+                      className="px-6 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors"
+                      style={{ color: '#111111', border: '1px solid #111111' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#111111'
+                        e.currentTarget.style.color = '#FFFFFF'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent'
+                        e.currentTarget.style.color = '#111111'
+                      }}
+                    >
+                      Upload
+                    </button>
+                    <p className="text-xs text-gray-400 mt-4">
+                      Max File Size: 10MB
+                    </p>
+                  </div>
+
+                  {/* Recently Added Files Section */}
+                  <div>
+                    {/* Header with Search and Filter */}
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+                      <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>
+                        Recently Added Files
+                      </h3>
+                      <div className="flex flex-col lg:flex-row gap-3">
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="Search"
+                            className="w-full lg:w-80 pl-4 pr-10 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                          <SearchIcon className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        </div>
+                        <select 
+                          className="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+                          style={{ 
+                            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, 
+                            backgroundPosition: 'right 0.75rem center', 
+                            backgroundRepeat: 'no-repeat', 
+                            backgroundSize: '1.25em 1.25em',
+                            paddingRight: '2.5rem'
+                          }}
+                        >
+                          <option>Photos</option>
+                          <option>Documents</option>
+                          <option>All Files</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* File List */}
+                    <div className="divide-y divide-gray-100">
+                      {projectData.files.map((file) => (
+                        <div 
+                          key={file.id}
+                          className="py-4"
+                        >
+                          {/* Desktop Layout */}
+                          <div className="hidden lg:flex lg:items-center lg:justify-between">
+                            <div className="flex items-center gap-3">
+                              <ImageIcon className="w-5 h-5 text-gray-400" />
+                              <span className="font-medium text-sm" style={{ color: '#1D1D1F' }}>{file.name}</span>
+                              <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600">.{file.type}</span>
+                              <span className="text-sm text-gray-500">{file.project} • Uploaded by: {file.uploadedBy}</span>
+                            </div>
+                            <div className="flex items-center gap-6">
+                              <button className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                                <EyeIcon className="w-4 h-4" />
+                                Preview
+                              </button>
+                              <button className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                                <DownloadIcon className="w-4 h-4" />
+                                Download
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Mobile Layout */}
+                          <div className="lg:hidden">
+                            <div className="flex items-start gap-3 mb-2">
+                              <ImageIcon className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-medium text-sm" style={{ color: '#1D1D1F' }}>{file.name}</span>
+                                  <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600">.{file.type}</span>
+                                </div>
+                                <p className="text-sm text-gray-500 mt-1">{file.project} • Uploaded by: {file.uploadedBy}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-4 ml-8">
+                              <button className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                                <EyeIcon className="w-4 h-4" />
+                                Preview
+                              </button>
+                              <button className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                                <DownloadIcon className="w-4 h-4" />
+                                Download
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Placeholder for other tabs */}
+              {!['overview', 'contacts', 'files'].includes(activeTab) && (
+                <div className="hidden lg:block p-12 text-center">
+                  <p className="text-gray-500">
+                    {tabs.find(t => t.id === activeTab)?.label} content coming soon...
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Project Timeline Section */}
+          <div 
+            className="bg-white mb-6"
+            style={{ borderRadius: '16px', boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)' }}
+          >
+            <div 
+              className="p-6 flex items-center justify-between cursor-pointer"
+              onClick={() => toggleSection('timeline')}
+            >
+              <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Project Timeline</h3>
+              <ChevronUpIcon className={`w-5 h-5 text-gray-500 transition-transform ${expandedSections.timeline ? '' : 'rotate-180'}`} />
+            </div>
+
+            {expandedSections.timeline && (
+              <div className="px-6 pb-6">
+                {/* Gantt Chart */}
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  {/* Month Header */}
+                  <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
+                    <span className="text-sm font-medium text-gray-700">{projectData.timeline.month}</span>
+                  </div>
+
+                  {/* Week Headers */}
+                  <div className="flex border-b border-gray-200">
+                    {projectData.timeline.weeks.map((week, index) => (
+                      <div 
+                        key={index} 
+                        className="flex-1 border-r border-gray-200 last:border-r-0 min-w-0"
+                      >
+                        <div className="px-2 lg:px-3 py-2 border-b border-gray-100">
+                          <div className="text-xs font-medium text-gray-700 truncate">{week.label}</div>
+                          <div className="text-xs text-gray-500 truncate hidden sm:block">{week.dates}</div>
+                        </div>
+                        <div className="flex">
+                          {week.days.map((day, dayIndex) => (
+                            <div 
+                              key={dayIndex} 
+                              className="flex-1 py-1 text-center text-xs text-gray-400 border-r border-gray-100 last:border-r-0"
+                            >
+                              <span className="hidden sm:inline">{day}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Gantt Rows */}
+                  <div className="relative" style={{ height: '300px' }}>
+                    {projectData.timeline.phases.map((phase, index) => (
+                      <div
+                        key={index}
+                        className="absolute flex items-center"
+                        style={{
+                          top: `${phase.row * 42 + 10}px`,
+                          left: `${phase.start * (100 / 6)}%`,
+                          width: `${phase.duration * (100 / 6)}%`,
+                          height: '32px',
+                        }}
+                      >
+                        <div 
+                          className={`h-full rounded px-2 flex items-center text-xs font-medium truncate ${
+                            phase.isMarker ? 'border-l-4 border-red-400' : ''
+                          }`}
+                          style={{ 
+                            backgroundColor: phase.color,
+                            width: '100%',
+                            color: phase.isMarker ? '#DC2626' : '#374151'
+                          }}
+                        >
+                          {phase.name}
+                        </div>
+                      </div>
+                    ))}
+                    
+                    {/* Today Marker */}
+                    <div 
+                      className="absolute top-0 bottom-0 w-0.5 bg-red-400"
+                      style={{ left: '50%' }}
+                    >
+                      <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-red-400" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* View Gantt Chart Button */}
+                <div className="flex justify-center mt-4">
+                  <button 
+                    className="px-6 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
+                    style={{ color: '#111111', border: '1px solid #111111' }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#111111'
+                      e.currentTarget.style.color = '#FFFFFF'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent'
+                      e.currentTarget.style.color = '#111111'
+                    }}
+                  >
+                    View Gantt Chart
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Customer Section */}
+          <div 
+            className="bg-white"
+            style={{ borderRadius: '16px', boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)' }}
+          >
+            <div 
+              className="p-6 flex items-center justify-between cursor-pointer"
+              onClick={() => toggleSection('customer')}
+            >
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Customer</h3>
+                <div className="w-3 h-3 rounded-full bg-green-500" />
+              </div>
+              <ChevronUpIcon className={`w-5 h-5 text-gray-500 transition-transform ${expandedSections.customer ? '' : 'rotate-180'}`} />
+            </div>
+
+            {expandedSections.customer && (
+              <div className="px-6 pb-6">
+                <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+                  {/* Customer Info */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <BuildingIcon className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-600"><span className="font-medium">Company:</span> {projectData.customer.company}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <UserIcon className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-600"><span className="font-medium">Point of Contact</span> {projectData.customer.pointOfContact}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <PhoneIcon className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-600"><span className="font-medium">Phone:</span> {projectData.customer.phone}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <EmailIcon className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-600"><span className="font-medium">Email:</span> {projectData.customer.email}</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <WrenchIcon className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm font-medium text-gray-600">Work Type:</span>
+                      {projectData.customer.workTypes.map((type, index) => (
+                        <span 
+                          key={index}
+                          className="px-2 py-1 rounded text-xs font-medium text-white"
+                          style={{ backgroundColor: type.color }}
+                        >
+                          {type.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-col gap-3 lg:items-end">
+                    <button 
+                      className="w-full lg:w-auto px-6 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                      style={{ color: '#111111', border: '1px solid #111111' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#111111'
+                        e.currentTarget.style.color = '#FFFFFF'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent'
+                        e.currentTarget.style.color = '#111111'
+                      }}
+                    >
+                      <PhoneIcon className="w-4 h-4" />
+                      Call
+                    </button>
+                    <button 
+                      className="w-full lg:w-auto px-6 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                      style={{ color: '#111111', border: '1px solid #111111' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#111111'
+                        e.currentTarget.style.color = '#FFFFFF'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent'
+                        e.currentTarget.style.color = '#111111'
+                      }}
+                    >
+                      <EmailIcon className="w-4 h-4" />
+                      Send Message
+                    </button>
+                    <button 
+                      className="w-full lg:w-auto px-6 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                      style={{ color: '#111111', border: '1px solid #111111' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#111111'
+                        e.currentTarget.style.color = '#FFFFFF'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent'
+                        e.currentTarget.style.color = '#111111'
+                      }}
+                    >
+                      Lockbox Code: {projectData.customer.lockboxCode}
+                      <CopyIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
+
+      {/* Edit Project Modal */}
+      {editModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          {/* Scrim - covers everything including nav */}
+          <div 
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setEditModalOpen(false)}
+          />
+          
+          {/* Modal */}
+          <div 
+            className="relative bg-white w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto"
+            style={{ 
+              borderRadius: '16px',
+              boxShadow: '2px 4px 24px rgba(0, 0, 0, 0.15)'
+            }}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 pb-4">
+              <h2 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Edit Project</h2>
+              <button 
+                onClick={() => setEditModalOpen(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <CloseIcon className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 pb-6 space-y-4">
+              {/* Bidding Date */}
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Bidding Date</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="mm/dd/yyyy"
+                    value={editFormData.biddingDate}
+                    onChange={(e) => handleEditFormChange('biddingDate', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                </div>
+              </div>
+
+              {/* Pending Date */}
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Pending Date</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="mm/dd/yyyy"
+                    value={editFormData.pendingDate}
+                    onChange={(e) => handleEditFormChange('pendingDate', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                </div>
+              </div>
+
+              {/* Scheduling Date */}
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Scheduling Date</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="mm/dd/yyyy"
+                    value={editFormData.schedulingDate}
+                    onChange={(e) => handleEditFormChange('schedulingDate', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                </div>
+              </div>
+
+              {/* Work In Progress Date */}
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Work In Progress Date</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="mm/dd/yyyy"
+                    value={editFormData.workInProgressDate1}
+                    onChange={(e) => handleEditFormChange('workInProgressDate1', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                </div>
+              </div>
+
+              {/* Work In Progress Date 2 */}
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Work In Progress Date</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="mm/dd/yyyy"
+                    value={editFormData.workInProgressDate2}
+                    onChange={(e) => handleEditFormChange('workInProgressDate2', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                </div>
+              </div>
+
+              {/* Sent For QC Date */}
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Sent For QC Date</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="mm/dd/yyyy"
+                    value={editFormData.sentForQCDate}
+                    onChange={(e) => handleEditFormChange('sentForQCDate', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                </div>
+              </div>
+
+              {/* Pending Broker */}
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Pending Broker</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="mm/dd/yyyy"
+                    value={editFormData.pendingBroker}
+                    onChange={(e) => handleEditFormChange('pendingBroker', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                </div>
+              </div>
+
+              {/* Go Back Date */}
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Go Back Date</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="mm/dd/yyyy"
+                    value={editFormData.goBackDate}
+                    onChange={(e) => handleEditFormChange('goBackDate', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                </div>
+              </div>
+
+              {/* Completion Date */}
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Completion date</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="mm/dd/yyyy"
+                    value={editFormData.completionDate}
+                    onChange={(e) => handleEditFormChange('completionDate', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col-reverse lg:flex-row gap-3 pt-4">
+                <button 
+                  onClick={() => setEditModalOpen(false)}
+                  className="flex-1 px-6 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
+                  style={{ color: '#111111', border: '1px solid #111111' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#111111'
+                    e.currentTarget.style.color = '#FFFFFF'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent'
+                    e.currentTarget.style.color = '#111111'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    // Handle save logic here
+                    console.log('Saving:', editFormData)
+                    setEditModalOpen(false)
+                  }}
+                  className="flex-1 px-6 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
+                  style={{ backgroundColor: '#1D1D1F' }}
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Icon Components
+function NavIcon({ name, active }) {
+  const iconClass = `w-5 h-5 ${active ? 'text-gray-900' : 'text-gray-400'}`
+  
+  switch (name) {
+    case 'home':
+      return (
+        <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+        </svg>
+      )
+    case 'folder':
+      return (
+        <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+        </svg>
+      )
+    case 'chart':
+      return (
+        <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+        </svg>
+      )
+    case 'users':
+      return (
+        <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" />
+        </svg>
+      )
+    case 'settings':
+      return (
+        <svg className={iconClass} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      )
+    default:
+      return null
+  }
+}
+
+function SearchIcon({ className, style }) {
+  return (
+    <svg className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+    </svg>
+  )
+}
+
+function BellIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+    </svg>
+  )
+}
+
+function HamburgerIcon({ className, style }) {
+  return (
+    <svg className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+    </svg>
+  )
+}
+
+function CloseIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  )
+}
+
+function ChevronRightIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+    </svg>
+  )
+}
+
+function ChevronLeftIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+    </svg>
+  )
+}
+
+function ChevronUpIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+    </svg>
+  )
+}
+
+function CheckIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+    </svg>
+  )
+}
+
+function WarningIcon({ className }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 20 20">
+      <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
+function FilterIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
+    </svg>
+  )
+}
+
+function GridIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+    </svg>
+  )
+}
+
+function BuildingIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
+    </svg>
+  )
+}
+
+function UserIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+    </svg>
+  )
+}
+
+function PhoneIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+    </svg>
+  )
+}
+
+function EmailIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+    </svg>
+  )
+}
+
+function WrenchIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17L17.25 21A2.652 2.652 0 0021 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 11-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 004.486-6.336l-3.276 3.277a3.004 3.004 0 01-2.25-2.25l3.276-3.276a4.5 4.5 0 00-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437l1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008z" />
+    </svg>
+  )
+}
+
+function CopyIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" />
+    </svg>
+  )
+}
+
+function CalendarIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+    </svg>
+  )
+}
+
+function ImageIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+    </svg>
+  )
+}
+
+function EyeIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  )
+}
+
+function DownloadIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+    </svg>
+  )
+}
+
+export default ProjectDetail
