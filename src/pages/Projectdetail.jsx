@@ -126,7 +126,39 @@ const projectData = {
       { id: '445523', task: 'Windows', contractor: 'Apex Roofing Systems', completed: 80, invoiceAmount: 14800, contractorAmount: 14800, alert: true },
       { id: '445623', task: 'Paint', contractor: 'Timberline Finish Carpentry', completed: 25, invoiceAmount: 18250, contractorAmount: 18250 },
     ]
-  }
+  },
+  permits: [
+    { id: 1, name: 'Permit Name', type: 'permit', appliedDate: '05/01/2025', approvedDate: '05/08/2025', finalInspection: 'Pending', finalInspectionColor: '#EAB308', passDate: '05/08/2025' },
+    { id: 2, name: 'Violation Name', type: 'violation', appliedDate: '05/01/2025', approvedDate: null, finalInspection: 'Not Approved', finalInspectionColor: '#EF4444', passDate: null },
+    { id: 3, name: 'Permit Name', type: 'permit', appliedDate: '04/28/2025', approvedDate: '05/05/2025', finalInspection: 'Scheduling', finalInspectionColor: '#6B7280', passDate: '05/15/2025' },
+    { id: 4, name: 'Permit Name', type: 'permit', appliedDate: '04/15/2025', approvedDate: '05/01/2025', finalInspection: 'Complete', finalInspectionColor: '#22C55E', passDate: '05/15/2025' },
+    { id: 5, name: 'Permit Name', type: 'permit', appliedDate: '05/01/2025', approvedDate: '05/08/2025', finalInspection: 'Complete', finalInspectionColor: '#22C55E', passDate: '05/15/2025' },
+  ],
+  contractorAllocation: [
+    { id: '651709', task: 'Final Cleaning & Punchout', contractor: 'Killowen Construction', completed: 0, completedLabel: 'Not Started', contractorAmount: 'XX,XXX.XX', netAmount: 'XX,XXX.XX' },
+    { id: '560312', task: 'Drywall & Texture', contractor: 'Killowen Construction', completed: 25, completedLabel: '0-49%', contractorAmount: 'XX,XXX.XX', netAmount: 'XX,XXX.XX' },
+    { id: '895632', task: 'Plumbing Rough In', contractor: 'Killowen Construction', completed: 35, completedLabel: '0-49%', contractorAmount: 'XX,XXX.XX', netAmount: 'XX,XXX.XX' },
+    { id: '998421', task: 'Roofing Install', contractor: 'Killowen Construction', completed: 65, completedLabel: '50-90%', contractorAmount: 'XX,XXX.XX', netAmount: 'XX,XXX.XX', alert: true },
+    { id: '445123', task: 'Cabinets Install', contractor: 'Killowen Construction', completed: 75, completedLabel: '50-90%', contractorAmount: 'XX,XXX.XX', netAmount: 'XX,XXX.XX', alert: true },
+    { id: '734508', task: 'Tile & Flooring Install', contractor: 'Killowen Construction', completed: 80, completedLabel: '50-90%', contractorAmount: 'XX,XXX.XX', netAmount: 'XX,XXX.XX', alert: true },
+    { id: '782911', task: 'Electrical Final', contractor: 'Killowen Construction', completed: 100, completedLabel: '100%', contractorAmount: 'XX,XXX.XX', netAmount: 'XX,XXX.XX' },
+    { id: '119382', task: 'HVAC Rough In', contractor: 'Killowen Construction', completed: 100, completedLabel: '100%', contractorAmount: 'XX,XXX.XX', netAmount: 'XX,XXX.XX' },
+    { id: '112045', task: 'Foundation Pour', contractor: 'Killowen Construction', completed: 100, completedLabel: '100%', contractorAmount: 'XX,XXX.XX', netAmount: 'XX,XXX.XX' },
+  ],
+  contractorPayments: [
+    { id: 1, dateRequested: '05/01/2025', contractor: 'Killowen Construction', status: 'Pending', statusColor: '#EAB308', amount: 5900.00, sentOn: '05/16/2025', hasNotes: false },
+    { id: 2, dateRequested: '05/01/2025', contractor: 'Killowen Construction', status: 'Approved', statusColor: '#22C55E', amount: 15900.00, sentOn: '05/15/2025', hasNotes: true },
+    { id: 3, dateRequested: '04/15/2025', contractor: 'Davison Heating', status: 'Approved', statusColor: '#22C55E', amount: 9900.00, sentOn: '05/15/2025', hasNotes: true },
+    { id: 4, dateRequested: '04/15/2025', contractor: 'Plasterman', status: 'Pending', statusColor: '#EAB308', amount: 1900.00, sentOn: '05/14/2025', hasNotes: false },
+    { id: 5, dateRequested: '04/15/2025', contractor: 'Hotshot HVAC', status: 'Pending', statusColor: '#EAB308', amount: 8900.00, sentOn: '05/11/2025', hasNotes: true },
+    { id: 6, dateRequested: '04/01/2025', contractor: 'Killowen Construction', status: 'Approved', statusColor: '#22C55E', amount: 3400.00, sentOn: '05/10/2025', hasNotes: false },
+    { id: 7, dateRequested: '04/01/2025', contractor: 'Killowen Construction', status: 'Approved', statusColor: '#22C55E', amount: 1999.99, sentOn: '05/03/2025', hasNotes: true },
+    { id: 8, dateRequested: '04/01/2025', contractor: 'Killowen Construction', status: 'Approved', statusColor: '#22C55E', amount: 5596.00, sentOn: '05/05/2025', hasNotes: false },
+  ],
+  contractorsList: [
+    { id: 1, name: 'Killowen Construction', status: 'active', statusColor: '#22C55E', specialty: 'GC', specialtyColor: '#1D1D1F', contact: 'Tyler Farrel', phone: '(385) 204-4570', email: 'first.last@domain.com', lockboxCode: 'XXXX' },
+    { id: 2, name: 'Lights N\' Switches', status: 'active', statusColor: '#22C55E', specialty: 'Electrical', specialtyColor: '#EAB308', contact: 'Derek Bjornson', phone: '(385) 204-4570', email: 'first.last@domain.com', lockboxCode: 'XXXX' },
+  ]
 }
 
 const tabs = [
@@ -154,12 +186,17 @@ function ProjectDetail({ user }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false)
+  const [reportModalOpen, setReportModalOpen] = useState(false)
+  const [notesModalOpen, setNotesModalOpen] = useState(false)
+  const [addContractorModalOpen, setAddContractorModalOpen] = useState(false)
   const [expandedSections, setExpandedSections] = useState({
     timeline: true,
     customer: true,
     scope: true
   })
   const [expandedContacts, setExpandedContacts] = useState({})
+  const [expandedContractors, setExpandedContractors] = useState({})
   const [editFormData, setEditFormData] = useState({
     biddingDate: '',
     pendingDate: '',
@@ -175,11 +212,61 @@ function ProjectDetail({ user }) {
     notes: '',
     attachment: null
   })
+  const [paymentFormData, setPaymentFormData] = useState({
+    contractor: 'Hotshot HVAC',
+    amount: '',
+    selectRange: 'This Quarter (Q2 2025)',
+    financialOutlook: true,
+    drawsSummary: false,
+    contractors: false,
+    subcontractors: false,
+    formatPDF: false,
+    formatExcel: true,
+    formatGoogleDoc: false,
+    notes: '',
+    attachment: null
+  })
+  const [contractorFormData, setContractorFormData] = useState({
+    name: '',
+    types: {
+      gc: null,
+      electrical: false,
+      plumbing: false,
+      hvac: false,
+      roofing: false,
+      flooring: false,
+      drywall: false,
+      paint: false,
+      cabinets: false
+    },
+    pointOfContact: '',
+    phone: '',
+    email: '',
+    lockboxCode: ''
+  })
+
+  const handleContractorFormChange = (field, value) => {
+    setContractorFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleContractorTypeChange = (type, checked) => {
+    setContractorFormData(prev => ({
+      ...prev,
+      types: { ...prev.types, [type]: checked }
+    }))
+  }
 
   const toggleContact = (contactId) => {
     setExpandedContacts(prev => ({
       ...prev,
       [contactId]: !prev[contactId]
+    }))
+  }
+
+  const toggleContractor = (contractorId) => {
+    setExpandedContractors(prev => ({
+      ...prev,
+      [contractorId]: !prev[contractorId]
     }))
   }
 
@@ -191,17 +278,34 @@ function ProjectDetail({ user }) {
     setInvoiceFormData(prev => ({ ...prev, [field]: value }))
   }
 
+  const handlePaymentFormChange = (field, value) => {
+    setPaymentFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const [notesFormData, setNotesFormData] = useState({
+    notes: '',
+    attachment: null
+  })
+
+  const handleNotesFormChange = (field, value) => {
+    setNotesFormData(prev => ({ ...prev, [field]: value }))
+  }
+
   // Close modal on ESC key
   useEffect(() => {
     const handleEsc = (e) => {
       if (e.key === 'Escape') {
         if (editModalOpen) setEditModalOpen(false)
         if (invoiceModalOpen) setInvoiceModalOpen(false)
+        if (paymentModalOpen) setPaymentModalOpen(false)
+        if (reportModalOpen) setReportModalOpen(false)
+        if (notesModalOpen) setNotesModalOpen(false)
+        if (addContractorModalOpen) setAddContractorModalOpen(false)
       }
     }
     window.addEventListener('keydown', handleEsc)
     return () => window.removeEventListener('keydown', handleEsc)
-  }, [editModalOpen, invoiceModalOpen])
+  }, [editModalOpen, invoiceModalOpen, paymentModalOpen, reportModalOpen, notesModalOpen, addContractorModalOpen])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -270,7 +374,7 @@ function ProjectDetail({ user }) {
           <CloseIcon className="w-5 h-5 text-gray-500" />
         </button>
 
-        <h1 className="text-xl font-bold mb-6 text-center pr-4" style={{ color: '#1D1D1F' }}>JMP</h1>
+        <h1 className="text-xl font-bold mb-6 text-center pr-4" style={{ color: '#1D1D1F' }}>JMPU</h1>
 
         <div 
           className="flex-1 px-4 py-5 flex flex-col"
@@ -388,50 +492,101 @@ function ProjectDetail({ user }) {
             {/* Action Buttons */}
             <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
               {activeTab === 'financials' ? (
+                <>
+                  <button 
+                    onClick={() => setInvoiceModalOpen(true)}
+                    className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
+                    style={{ backgroundColor: '#1D1D1F' }}
+                  >
+                    New Invoice
+                  </button>
+                  <button 
+                    onClick={() => setPaymentModalOpen(true)}
+                    className="w-full lg:w-auto px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
+                    style={{ color: '#111111', border: '1px solid #111111' }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#111111'
+                      e.currentTarget.style.color = '#FFFFFF'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent'
+                      e.currentTarget.style.color = '#111111'
+                    }}
+                  >
+                    Pay
+                  </button>
+                </>
+              ) : activeTab === 'permits' ? (
                 <button 
-                  onClick={() => setInvoiceModalOpen(true)}
                   className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
                   style={{ backgroundColor: '#1D1D1F' }}
                 >
-                  New Invoice
+                  Add Permit/Violation
                 </button>
+              ) : activeTab === 'contractors' ? (
+                <>
+                  <button 
+                    onClick={() => setReportModalOpen(true)}
+                    className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
+                    style={{ backgroundColor: '#1D1D1F' }}
+                  >
+                    Request Draw
+                  </button>
+                  <button 
+                    onClick={() => setAddContractorModalOpen(true)}
+                    className="w-full lg:w-auto px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
+                    style={{ color: '#111111', border: '1px solid #111111' }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#111111'
+                      e.currentTarget.style.color = '#FFFFFF'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent'
+                      e.currentTarget.style.color = '#111111'
+                    }}
+                  >
+                    Add Contractor
+                  </button>
+                </>
               ) : (
-                <button 
-                  className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
-                  style={{ backgroundColor: '#1D1D1F' }}
-                >
-                  Send Message
-                </button>
+                <>
+                  <button 
+                    className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
+                    style={{ backgroundColor: '#1D1D1F' }}
+                  >
+                    Send Message
+                  </button>
+                  <button 
+                    onClick={() => setEditModalOpen(true)}
+                    className="w-full lg:w-auto px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
+                    style={{ color: '#111111', border: '1px solid #111111' }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#111111'
+                      e.currentTarget.style.color = '#FFFFFF'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent'
+                      e.currentTarget.style.color = '#111111'
+                    }}
+                  >
+                    Edit Project
+                  </button>
+                  <button 
+                    className="w-full lg:w-auto px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
+                    style={{ color: '#111111', border: '1px solid #111111' }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = '#111111'
+                      e.currentTarget.style.color = '#FFFFFF'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent'
+                      e.currentTarget.style.color = '#111111'
+                    }}
+                  >
+                    AI Summary
+                  </button>
+                </>
               )}
-              <button 
-                onClick={() => setEditModalOpen(true)}
-                className="w-full lg:w-auto px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
-                style={{ color: '#111111', border: '1px solid #111111' }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#111111'
-                  e.currentTarget.style.color = '#FFFFFF'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent'
-                  e.currentTarget.style.color = '#111111'
-                }}
-              >
-                Edit Project
-              </button>
-              <button 
-                className="w-full lg:w-auto px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
-                style={{ color: '#111111', border: '1px solid #111111' }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#111111'
-                  e.currentTarget.style.color = '#FFFFFF'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent'
-                  e.currentTarget.style.color = '#111111'
-                }}
-              >
-                AI Summary
-              </button>
             </div>
           </div>
 
@@ -1180,8 +1335,343 @@ function ProjectDetail({ user }) {
                 </div>
               )}
 
+              {/* Permits Tab Content */}
+              {activeTab === 'permits' && (
+                <div className="p-6">
+                  {/* Permits & Violations Section */}
+                  <div className="mb-8">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+                      <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Permits & Violations</h3>
+                      <select 
+                        className="w-full lg:w-auto px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+                        style={{ 
+                          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, 
+                          backgroundPosition: 'right 0.75rem center', 
+                          backgroundRepeat: 'no-repeat', 
+                          backgroundSize: '1.25em 1.25em',
+                          paddingRight: '2.5rem'
+                        }}
+                      >
+                        <option>Permits</option>
+                        <option>Violations</option>
+                        <option>All</option>
+                      </select>
+                    </div>
+
+                    {/* Permits Table - Desktop */}
+                    <div className="hidden lg:block overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-gray-100">
+                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Permit / Violation</th>
+                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Applied For Date</th>
+                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Approved Date</th>
+                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Final Inspection</th>
+                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Pass Date</th>
+                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {projectData.permits.map((permit) => (
+                            <tr key={permit.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="py-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm font-medium" style={{ color: '#1D1D1F' }}>{permit.name}</span>
+                                  <span className="px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-600">.PDF</span>
+                                </div>
+                              </td>
+                              <td className="py-3">
+                                <span className="text-sm text-gray-600">{permit.appliedDate}</span>
+                              </td>
+                              <td className="py-3">
+                                {permit.approvedDate ? (
+                                  <span className="text-sm text-green-600 underline cursor-pointer">{permit.approvedDate}</span>
+                                ) : (
+                                  <span className="text-sm text-gray-400">NA</span>
+                                )}
+                              </td>
+                              <td className="py-3">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-sm" style={{ color: permit.finalInspectionColor }}>{permit.finalInspection}</span>
+                                  <ChevronDownIcon className="w-4 h-4" style={{ color: permit.finalInspectionColor }} />
+                                </div>
+                              </td>
+                              <td className="py-3">
+                                {permit.passDate ? (
+                                  <span className="text-sm text-gray-600">{permit.passDate}</span>
+                                ) : (
+                                  <span className="text-sm text-gray-400">NA</span>
+                                )}
+                              </td>
+                              <td className="py-3">
+                                <button className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                                  View Notes
+                                  <NotesIcon className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Permits List - Mobile */}
+                    <div className="lg:hidden divide-y divide-gray-100">
+                      {projectData.permits.map((permit) => (
+                        <div 
+                          key={permit.id}
+                          className="py-4"
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium" style={{ color: '#1D1D1F' }}>{permit.name}</span>
+                              <span className="px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-600">.PDF</span>
+                            </div>
+                            <span className="text-xs" style={{ color: permit.finalInspectionColor }}>{permit.finalInspection}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <span>Applied: {permit.appliedDate}</span>
+                            {permit.approvedDate && <span className="text-green-600">Approved: {permit.approvedDate}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Upload Section */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4" style={{ color: '#1D1D1F' }}>
+                      Upload Permit, Violation, Files, etc.
+                    </h3>
+                    <div 
+                      className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-gray-300 transition-colors cursor-pointer"
+                      onClick={() => document.getElementById('permit-file-input').click()}
+                    >
+                      <p className="text-base font-medium text-gray-700 mb-2">
+                        Drag & Drop Files here
+                      </p>
+                      <p className="text-sm text-gray-500 mb-4">
+                        Files Supported - .XLS, .PDF, .HEIC, .JPG, .PNG
+                      </p>
+                      <button 
+                        className="px-6 py-2 bg-transparent text-sm font-medium transition-colors"
+                        style={{ 
+                          color: '#111111', 
+                          border: '1px solid #111111',
+                          borderRadius: '8px'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#111111'
+                          e.currentTarget.style.color = '#FFFFFF'
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent'
+                          e.currentTarget.style.color = '#111111'
+                        }}
+                      >
+                        Upload
+                      </button>
+                      <p className="text-xs text-gray-400 mt-4">
+                        Max File Size: 10MB
+                      </p>
+                    </div>
+                    <input
+                      id="permit-file-input"
+                      type="file"
+                      accept=".xls,.xlsx,.pdf,.heic,.jpg,.jpeg,.png"
+                      className="hidden"
+                      multiple
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Contractors Tab Content */}
+              {activeTab === 'contractors' && (
+                <div className="p-6">
+                  {/* Contractor Allocation Section */}
+                  <div className="mb-8">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+                      <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Contractor Allocation</h3>
+                      <select 
+                        className="w-full lg:w-auto px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+                        style={{ 
+                          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, 
+                          backgroundPosition: 'right 0.75rem center', 
+                          backgroundRepeat: 'no-repeat', 
+                          backgroundSize: '1.25em 1.25em',
+                          paddingRight: '2.5rem'
+                        }}
+                      >
+                        <option>Killowen Construction</option>
+                        <option>Lights N' Switches</option>
+                        <option>All Contractors</option>
+                      </select>
+                    </div>
+
+                    {/* Allocation Table - Desktop */}
+                    <div className="hidden lg:block overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-gray-100">
+                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Task & Details</th>
+                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Completed %</th>
+                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Contractor Amount</th>
+                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Net Amount</th>
+                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Download</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {projectData.contractorAllocation.map((item) => (
+                            <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="py-3">
+                                <span className="text-sm text-gray-900">{item.id} {item.task}</span>
+                              </td>
+                              <td className="py-3">
+                                <div className="flex items-center gap-2">
+                                  <span className={`text-sm ${item.completed === 100 ? 'text-green-600' : item.completed >= 50 ? 'text-yellow-600' : 'text-gray-500'}`}>
+                                    {item.completedLabel}
+                                  </span>
+                                  {item.completed > 0 && (
+                                    <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                      <div 
+                                        className="h-full rounded-full"
+                                        style={{ 
+                                          width: `${item.completed}%`,
+                                          backgroundColor: item.completed === 100 ? '#22C55E' : item.completed >= 50 ? '#EAB308' : '#9CA3AF'
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                                  {item.alert && <AlertIcon className="w-4 h-4 text-red-500" />}
+                                </div>
+                              </td>
+                              <td className="py-3">
+                                <span className="text-sm text-gray-600">${item.contractorAmount}</span>
+                              </td>
+                              <td className="py-3">
+                                <span className="text-sm text-gray-600">${item.netAmount}</span>
+                              </td>
+                              <td className="py-3">
+                                <button 
+                                  onClick={() => setReportModalOpen(true)}
+                                  className="text-sm text-blue-600 underline hover:text-blue-800"
+                                >
+                                  Download Report (.XLS)
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Allocation List - Mobile */}
+                    <div className="lg:hidden divide-y divide-gray-100">
+                      {projectData.contractorAllocation.map((item) => (
+                        <div key={item.id} className="py-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium" style={{ color: '#1D1D1F' }}>{item.id} {item.task}</span>
+                            <span className={`text-xs ${item.completed === 100 ? 'text-green-600' : item.completed >= 50 ? 'text-yellow-600' : 'text-gray-500'}`}>
+                              {item.completedLabel}
+                            </span>
+                          </div>
+                          <div className="text-xs text-gray-500">${item.netAmount}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Contractor Payments (Draws) Section */}
+                  <div>
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
+                      <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Contractor Payments (Draws)</h3>
+                      <select 
+                        className="w-full lg:w-auto px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+                        style={{ 
+                          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, 
+                          backgroundPosition: 'right 0.75rem center', 
+                          backgroundRepeat: 'no-repeat', 
+                          backgroundSize: '1.25em 1.25em',
+                          paddingRight: '2.5rem'
+                        }}
+                      >
+                        <option>All</option>
+                        <option>Pending</option>
+                        <option>Approved</option>
+                      </select>
+                    </div>
+
+                    {/* Payments Table - Desktop */}
+                    <div className="hidden lg:block overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b border-gray-100">
+                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Date Requested</th>
+                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Contractor</th>
+                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Sent On</th>
+                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {projectData.contractorPayments.map((payment) => (
+                            <tr key={payment.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="py-3">
+                                <span className="text-sm text-gray-600">{payment.dateRequested}</span>
+                              </td>
+                              <td className="py-3">
+                                <span className="text-sm text-blue-600 underline cursor-pointer">{payment.contractor}</span>
+                              </td>
+                              <td className="py-3">
+                                <div className="flex items-center gap-1">
+                                  <span className="text-sm" style={{ color: payment.statusColor }}>{payment.status}</span>
+                                  <ChevronDownIcon className="w-4 h-4" style={{ color: payment.statusColor }} />
+                                </div>
+                              </td>
+                              <td className="py-3">
+                                <span className="text-sm text-gray-600">${payment.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                              </td>
+                              <td className="py-3">
+                                <span className="text-sm text-gray-600">{payment.sentOn}</span>
+                              </td>
+                              <td className="py-3">
+                                <button 
+                                  onClick={() => setNotesModalOpen(true)}
+                                  className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                                >
+                                  {payment.hasNotes ? 'View Notes' : 'Add Note +'}
+                                  <NotesIcon className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Payments List - Mobile */}
+                    <div className="lg:hidden divide-y divide-gray-100">
+                      {projectData.contractorPayments.map((payment) => (
+                        <div key={payment.id} className="py-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm text-blue-600 underline">{payment.contractor}</span>
+                            <span className="text-sm" style={{ color: payment.statusColor }}>{payment.status}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs text-gray-500">
+                            <span>{payment.dateRequested}</span>
+                            <span>${payment.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Placeholder for other tabs */}
-              {!['overview', 'contacts', 'files', 'financials'].includes(activeTab) && (
+              {!['overview', 'contacts', 'files', 'financials', 'permits', 'contractors'].includes(activeTab) && (
                 <div className="hidden lg:block p-12 text-center">
                   <p className="text-gray-500">
                     {tabs.find(t => t.id === activeTab)?.label} content coming soon...
@@ -1310,6 +1800,91 @@ function ProjectDetail({ user }) {
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {/* Contractor Cards - Only shown on Contractors tab */}
+          {activeTab === 'contractors' && (
+            <div className="space-y-4 mb-6">
+              {projectData.contractorsList.map((contractor) => (
+                <div 
+                  key={contractor.id}
+                  className="bg-white"
+                  style={{ borderRadius: '16px', boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)' }}
+                >
+                  {/* Contractor Header */}
+                  <div 
+                    className="p-6 flex items-center justify-between cursor-pointer"
+                    onClick={() => toggleContractor(contractor.id)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>{contractor.name}</h3>
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: contractor.statusColor }} />
+                      <span 
+                        className="px-2 py-0.5 rounded text-xs font-medium"
+                        style={{ 
+                          backgroundColor: contractor.specialty === 'GC' ? '#1D1D1F' : '#FEF3C7',
+                          color: contractor.specialty === 'GC' ? '#FFFFFF' : '#92400E'
+                        }}
+                      >
+                        {contractor.specialty === 'GC' ? '🔧 GC' : '⚡ ' + contractor.specialty}
+                      </span>
+                    </div>
+                    <ChevronUpIcon className={`w-5 h-5 text-gray-400 transition-transform ${expandedContractors[contractor.id] ? '' : 'rotate-180'}`} />
+                  </div>
+
+                  {/* Contractor Details */}
+                  {expandedContractors[contractor.id] && (
+                    <div className="px-6 pb-6">
+                      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                        {/* Contact Info */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2 text-sm">
+                            <UserIcon className="w-4 h-4 text-gray-400" />
+                            <span className="text-gray-500">Point of Contact</span>
+                            <span className="text-gray-900">{contractor.contact}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <PhoneIcon className="w-4 h-4 text-gray-400" />
+                            <span className="text-gray-500">Phone:</span>
+                            <span className="text-gray-900">{contractor.phone}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <EmailIcon className="w-4 h-4 text-gray-400" />
+                            <span className="text-gray-500">Email:</span>
+                            <span className="text-gray-900">{contractor.email}</span>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex flex-col gap-2 lg:items-end">
+                          <button 
+                            className="w-full lg:w-auto px-6 py-2 bg-transparent rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                            style={{ color: '#111111', border: '1px solid #E5E7EB' }}
+                          >
+                            <PhoneIcon className="w-4 h-4" />
+                            Call
+                          </button>
+                          <button 
+                            className="w-full lg:w-auto px-6 py-2 bg-transparent rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                            style={{ color: '#111111', border: '1px solid #E5E7EB' }}
+                          >
+                            <EmailIcon className="w-4 h-4" />
+                            Send Message
+                          </button>
+                          <button 
+                            className="w-full lg:w-auto px-6 py-2 bg-transparent rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                            style={{ color: '#111111', border: '1px solid #E5E7EB' }}
+                          >
+                            Lockbox Code: {contractor.lockboxCode}
+                            <LinkIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 
@@ -1815,6 +2390,717 @@ function ProjectDetail({ user }) {
           </div>
         </div>
       )}
+
+      {/* New Contractor Payment Modal */}
+      {paymentModalOpen && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={() => setPaymentModalOpen(false)}
+        >
+          <div 
+            className="bg-white w-full max-w-md max-h-[90vh] overflow-y-auto"
+            style={{ borderRadius: '16px', boxShadow: '2px 4px 24px rgba(0, 0, 0, 0.15)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <h2 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>New Contractor Payment</h2>
+              <button 
+                onClick={() => setPaymentModalOpen(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <CloseIcon className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              {/* Contractor */}
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Contractor</label>
+                <select
+                  value={paymentFormData.contractor}
+                  onChange={(e) => handlePaymentFormChange('contractor', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+                  style={{ 
+                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, 
+                    backgroundPosition: 'right 0.75rem center', 
+                    backgroundRepeat: 'no-repeat', 
+                    backgroundSize: '1.25em 1.25em',
+                    paddingRight: '2.5rem'
+                  }}
+                >
+                  <option>Hotshot HVAC</option>
+                  <option>Killowen Construction</option>
+                  <option>Davison Plumbing & Sons</option>
+                  <option>Apex Roofing Systems</option>
+                </select>
+              </div>
+
+              {/* Amount */}
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Amount</label>
+                <input
+                  type="text"
+                  placeholder="$14,999.99"
+                  value={paymentFormData.amount}
+                  onChange={(e) => handlePaymentFormChange('amount', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Include The Following */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Include The Following:</label>
+                
+                {/* Select Range */}
+                <div className="mb-3">
+                  <label className="block text-xs text-gray-500 mb-1">Select Range</label>
+                  <select
+                    value={paymentFormData.selectRange}
+                    onChange={(e) => handlePaymentFormChange('selectRange', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+                    style={{ 
+                      backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, 
+                      backgroundPosition: 'right 0.75rem center', 
+                      backgroundRepeat: 'no-repeat', 
+                      backgroundSize: '1.25em 1.25em',
+                      paddingRight: '2.5rem'
+                    }}
+                  >
+                    <option>This Quarter (Q2 2025)</option>
+                    <option>Last Quarter (Q1 2025)</option>
+                    <option>Year to Date</option>
+                    <option>Custom Range</option>
+                  </select>
+                </div>
+
+                {/* Checkboxes */}
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={paymentFormData.financialOutlook}
+                      onChange={(e) => handlePaymentFormChange('financialOutlook', e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500"
+                    />
+                    <span className="text-sm text-gray-700">Financial Outlook</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={paymentFormData.drawsSummary}
+                      onChange={(e) => handlePaymentFormChange('drawsSummary', e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500"
+                    />
+                    <span className="text-sm text-gray-700">Draws Summary</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Contractors */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Contractors:</label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={paymentFormData.contractors}
+                      onChange={(e) => handlePaymentFormChange('contractors', e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500"
+                    />
+                    <span className="text-sm text-gray-700">Contractors</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={paymentFormData.subcontractors}
+                      onChange={(e) => handlePaymentFormChange('subcontractors', e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500"
+                    />
+                    <span className="text-sm text-gray-700">Subcontractors</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Format */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Format:</label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={paymentFormData.formatPDF}
+                      onChange={(e) => handlePaymentFormChange('formatPDF', e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500"
+                    />
+                    <span className="text-sm text-gray-700">PDF</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={paymentFormData.formatExcel}
+                      onChange={(e) => handlePaymentFormChange('formatExcel', e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500"
+                    />
+                    <span className="text-sm text-gray-700">Microsoft Excel</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={paymentFormData.formatGoogleDoc}
+                      onChange={(e) => handlePaymentFormChange('formatGoogleDoc', e.target.checked)}
+                      className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500"
+                    />
+                    <span className="text-sm text-gray-700">Google Doc</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Notes:</label>
+                <textarea
+                  placeholder="Lorem ipsum dolor sit amet, vince adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+                  value={paymentFormData.notes}
+                  onChange={(e) => handlePaymentFormChange('notes', e.target.value)}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+
+              {/* Attach Proof */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Attach Proof:</label>
+                <div 
+                  className="border border-gray-200 rounded-lg p-3 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={() => document.getElementById('payment-file-input').click()}
+                >
+                  <span className="text-sm text-gray-500">Drag and drop or browse (PDF, PNG, JPG)</span>
+                  <AttachmentIcon className="w-5 h-5 text-gray-400" />
+                </div>
+                <input
+                  id="payment-file-input"
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  className="hidden"
+                  onChange={(e) => handlePaymentFormChange('attachment', e.target.files[0])}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col-reverse lg:flex-row gap-3 pt-2">
+                <button 
+                  onClick={() => setPaymentModalOpen(false)}
+                  className="flex-1 px-6 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors"
+                  style={{ color: '#111111', border: '1px solid #111111' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#111111'
+                    e.currentTarget.style.color = '#FFFFFF'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent'
+                    e.currentTarget.style.color = '#111111'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    // Handle submit logic here
+                    console.log('Submitting payment:', paymentFormData)
+                    setPaymentModalOpen(false)
+                  }}
+                  className="flex-1 px-6 py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-colors"
+                  style={{ backgroundColor: '#1D1D1F' }}
+                >
+                  Submit Draw
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Download Report Modal */}
+      {reportModalOpen && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={() => setReportModalOpen(false)}
+        >
+          <div 
+            className="bg-white w-full max-w-md max-h-[90vh] overflow-y-auto"
+            style={{ borderRadius: '16px', boxShadow: '2px 4px 24px rgba(0, 0, 0, 0.15)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <h2 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Download A Report</h2>
+              <button 
+                onClick={() => setReportModalOpen(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <CloseIcon className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              {/* Contractor */}
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Contractor</label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+                  style={{ 
+                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, 
+                    backgroundPosition: 'right 0.75rem center', 
+                    backgroundRepeat: 'no-repeat', 
+                    backgroundSize: '1.25em 1.25em',
+                    paddingRight: '2.5rem'
+                  }}
+                >
+                  <option>Hotshot HVAC</option>
+                  <option>Killowen Construction</option>
+                  <option>Davison Plumbing & Sons</option>
+                </select>
+              </div>
+
+              {/* Amount */}
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Amount</label>
+                <input
+                  type="text"
+                  placeholder="$14,999.99"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Include The Following */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Include The Following:</label>
+                <div className="mb-3">
+                  <label className="block text-xs text-gray-500 mb-1">Select Range</label>
+                  <select
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+                    style={{ 
+                      backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, 
+                      backgroundPosition: 'right 0.75rem center', 
+                      backgroundRepeat: 'no-repeat', 
+                      backgroundSize: '1.25em 1.25em',
+                      paddingRight: '2.5rem'
+                    }}
+                  >
+                    <option>This Quarter (Q2 2025)</option>
+                    <option>Last Quarter (Q1 2025)</option>
+                    <option>Year to Date</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-gray-300" />
+                    <span className="text-sm text-gray-700">Financial Outlook</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300" />
+                    <span className="text-sm text-gray-700">Draws Summary</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Contractors */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Contractors:</label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300" />
+                    <span className="text-sm text-gray-700">Contractors</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300" />
+                    <span className="text-sm text-gray-700">Subcontractors</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Format */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Format:</label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300" />
+                    <span className="text-sm text-gray-700">PDF</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" defaultChecked className="w-4 h-4 rounded border-gray-300" />
+                    <span className="text-sm text-gray-700">Microsoft Excel</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" className="w-4 h-4 rounded border-gray-300" />
+                    <span className="text-sm text-gray-700">Google Doc</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Notes:</label>
+                <textarea
+                  placeholder="Lorem ipsum dolor sit amet, vince adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+
+              {/* Attach Proof */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Attach Proof:</label>
+                <div className="border border-gray-200 rounded-lg p-3 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors">
+                  <span className="text-sm text-gray-500">Drag and drop or browse (PDF, PNG, JPG)</span>
+                  <AttachmentIcon className="w-5 h-5 text-gray-400" />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={() => setReportModalOpen(false)}
+                  className="flex-1 px-6 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors"
+                  style={{ color: '#111111', border: '1px solid #111111' }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => setReportModalOpen(false)}
+                  className="flex-1 px-6 py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-colors"
+                  style={{ backgroundColor: '#1D1D1F' }}
+                >
+                  Download
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notes Modal */}
+      {notesModalOpen && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={() => setNotesModalOpen(false)}
+        >
+          <div 
+            className="bg-white w-full max-w-md"
+            style={{ borderRadius: '16px', boxShadow: '2px 4px 24px rgba(0, 0, 0, 0.15)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <h2 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Notes</h2>
+              <button 
+                onClick={() => setNotesModalOpen(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <CloseIcon className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Notes:</label>
+                <textarea
+                  placeholder="Lorem ipsum dolor sit amet, vince adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua."
+                  value={notesFormData.notes}
+                  onChange={(e) => handleNotesFormChange('notes', e.target.value)}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                />
+              </div>
+
+              {/* Attach Proof */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Attach Proof:</label>
+                <div 
+                  className="border border-gray-200 rounded-lg p-3 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+                  onClick={() => document.getElementById('notes-file-input').click()}
+                >
+                  <span className="text-sm text-gray-500">Drag and drop or browse (PDF, PNG, JPG)</span>
+                  <AttachmentIcon className="w-5 h-5 text-gray-400" />
+                </div>
+                <input
+                  id="notes-file-input"
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  className="hidden"
+                  onChange={(e) => handleNotesFormChange('attachment', e.target.files[0])}
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={() => setNotesModalOpen(false)}
+                  className="flex-1 px-6 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors"
+                  style={{ color: '#111111', border: '1px solid #111111' }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    console.log('Adding note:', notesFormData)
+                    setNotesModalOpen(false)
+                    setNotesFormData({ notes: '', attachment: null })
+                  }}
+                  className="flex-1 px-6 py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-colors"
+                  style={{ backgroundColor: '#1D1D1F' }}
+                >
+                  Add Note
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Contractor Modal */}
+      {addContractorModalOpen && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={() => setAddContractorModalOpen(false)}
+        >
+          <div 
+            className="bg-white w-full max-w-md max-h-[90vh] overflow-y-auto"
+            style={{ borderRadius: '16px', boxShadow: '2px 4px 24px rgba(0, 0, 0, 0.15)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <h2 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Add Contractor</h2>
+              <button 
+                onClick={() => setAddContractorModalOpen(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <CloseIcon className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              {/* Contractor Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Contractor Name</label>
+                <input
+                  type="text"
+                  placeholder="e.g., Killowen Construction"
+                  value={contractorFormData.name}
+                  onChange={(e) => handleContractorFormChange('name', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Is General Contractor? */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Is this a General Contractor?</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="isGC"
+                      checked={contractorFormData.types.gc === true}
+                      onChange={() => handleContractorTypeChange('gc', true)}
+                      className="w-4 h-4 border-gray-300 text-gray-900 focus:ring-gray-500"
+                    />
+                    <span className="text-sm text-gray-700">Yes</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="isGC"
+                      checked={contractorFormData.types.gc === false}
+                      onChange={() => handleContractorTypeChange('gc', false)}
+                      className="w-4 h-4 border-gray-300 text-gray-900 focus:ring-gray-500"
+                    />
+                    <span className="text-sm text-gray-700">No</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Specialty Types - Only show if NOT a GC */}
+              {contractorFormData.types.gc === false && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Specialty / Trade</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={contractorFormData.types.electrical}
+                        onChange={(e) => handleContractorTypeChange('electrical', e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500"
+                      />
+                      <span className="text-sm text-gray-700">Electrical</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={contractorFormData.types.plumbing}
+                        onChange={(e) => handleContractorTypeChange('plumbing', e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500"
+                      />
+                      <span className="text-sm text-gray-700">Plumbing</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={contractorFormData.types.hvac}
+                        onChange={(e) => handleContractorTypeChange('hvac', e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500"
+                      />
+                      <span className="text-sm text-gray-700">HVAC</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={contractorFormData.types.roofing}
+                        onChange={(e) => handleContractorTypeChange('roofing', e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500"
+                      />
+                      <span className="text-sm text-gray-700">Roofing</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={contractorFormData.types.flooring}
+                        onChange={(e) => handleContractorTypeChange('flooring', e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500"
+                      />
+                      <span className="text-sm text-gray-700">Flooring</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={contractorFormData.types.drywall}
+                        onChange={(e) => handleContractorTypeChange('drywall', e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500"
+                      />
+                      <span className="text-sm text-gray-700">Drywall</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={contractorFormData.types.paint}
+                        onChange={(e) => handleContractorTypeChange('paint', e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500"
+                      />
+                      <span className="text-sm text-gray-700">Paint</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={contractorFormData.types.cabinets}
+                        onChange={(e) => handleContractorTypeChange('cabinets', e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-500"
+                      />
+                      <span className="text-sm text-gray-700">Cabinets</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* Point of Contact */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Point of Contact</label>
+                <input
+                  type="text"
+                  placeholder="e.g., Tyler Farrel"
+                  value={contractorFormData.pointOfContact}
+                  onChange={(e) => handleContractorFormChange('pointOfContact', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <input
+                  type="tel"
+                  placeholder="(385) 204-4570"
+                  value={contractorFormData.phone}
+                  onChange={(e) => handleContractorFormChange('phone', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  placeholder="contact@company.com"
+                  value={contractorFormData.email}
+                  onChange={(e) => handleContractorFormChange('email', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Lockbox Code */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Lockbox Code</label>
+                <input
+                  type="text"
+                  placeholder="4-digit code"
+                  maxLength={4}
+                  value={contractorFormData.lockboxCode}
+                  onChange={(e) => handleContractorFormChange('lockboxCode', e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">For property entry access</p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={() => setAddContractorModalOpen(false)}
+                  className="flex-1 px-6 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors"
+                  style={{ color: '#111111', border: '1px solid #111111' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#111111'
+                    e.currentTarget.style.color = '#FFFFFF'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent'
+                    e.currentTarget.style.color = '#111111'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    console.log('Adding contractor:', contractorFormData)
+                    setAddContractorModalOpen(false)
+                    setContractorFormData({
+                      name: '',
+                      types: { gc: null, electrical: false, plumbing: false, hvac: false, roofing: false, flooring: false, drywall: false, paint: false, cabinets: false },
+                      pointOfContact: '',
+                      phone: '',
+                      email: '',
+                      lockboxCode: ''
+                    })
+                  }}
+                  className="flex-1 px-6 py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-colors"
+                  style={{ backgroundColor: '#1D1D1F' }}
+                >
+                  Add Contractor
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -2049,6 +3335,22 @@ function AttachmentIcon({ className }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" />
+    </svg>
+  )
+}
+
+function NotesIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+    </svg>
+  )
+}
+
+function LinkIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
     </svg>
   )
 }

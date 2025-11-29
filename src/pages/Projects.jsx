@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
@@ -77,6 +77,43 @@ function Projects({ user }) {
   const [activeNav, setActiveNav] = useState('projects')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [showPendingTooltip, setShowPendingTooltip] = useState(false)
+  const [newProjectModalOpen, setNewProjectModalOpen] = useState(false)
+  const [newProjectFormData, setNewProjectFormData] = useState({
+    customer: '',
+    assetNumber: '',
+    address: '',
+    city: '',
+    state: '',
+    zip: '',
+    dateReceived: ''
+  })
+
+  const handleNewProjectFormChange = (field, value) => {
+    setNewProjectFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const resetNewProjectForm = () => {
+    setNewProjectFormData({
+      customer: '',
+      assetNumber: '',
+      address: '',
+      city: '',
+      state: '',
+      zip: '',
+      dateReceived: ''
+    })
+  }
+
+  // Close modal on ESC key
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') {
+        if (newProjectModalOpen) setNewProjectModalOpen(false)
+      }
+    }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [newProjectModalOpen])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -151,7 +188,7 @@ function Projects({ user }) {
         </button>
 
         {/* Logo */}
-        <h1 className="text-xl font-bold mb-6 text-center pr-4" style={{ color: '#1D1D1F' }}>JMP</h1>
+        <h1 className="text-xl font-bold mb-6 text-center pr-4" style={{ color: '#1D1D1F' }}>JMPU</h1>
 
         {/* Nav Container */}
         <div 
@@ -272,13 +309,14 @@ function Projects({ user }) {
             {/* Action Buttons */}
             <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
               <button 
-                className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors order-1 lg:order-2"
+                onClick={() => setNewProjectModalOpen(true)}
+                className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
                 style={{ backgroundColor: '#1D1D1F' }}
               >
                 New Project
               </button>
               <button 
-                className="w-full lg:w-auto group px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors hover:text-white order-2 lg:order-1"
+                className="w-full lg:w-auto group px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors hover:text-white"
                 style={{ 
                   color: '#111111', 
                   border: '1px solid #111111',
@@ -495,6 +533,210 @@ function Projects({ user }) {
           </div>
         </div>
       </main>
+
+      {/* New Project Modal */}
+      {newProjectModalOpen && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+          onClick={() => setNewProjectModalOpen(false)}
+        >
+          <div 
+            className="bg-white w-full max-w-md max-h-[90vh] overflow-y-auto"
+            style={{ borderRadius: '16px', boxShadow: '2px 4px 24px rgba(0, 0, 0, 0.15)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <h2 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>New Project</h2>
+              <button 
+                onClick={() => setNewProjectModalOpen(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <CloseIcon className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              {/* Customer */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Customer</label>
+                <input
+                  type="text"
+                  placeholder="Name"
+                  value={newProjectFormData.customer}
+                  onChange={(e) => handleNewProjectFormChange('customer', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Asset # */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Asset #</label>
+                <input
+                  type="text"
+                  placeholder="XXXXXXXXXXX"
+                  value={newProjectFormData.assetNumber}
+                  onChange={(e) => handleNewProjectFormChange('assetNumber', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Address */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                <input
+                  type="text"
+                  placeholder="999 Road Rd."
+                  value={newProjectFormData.address}
+                  onChange={(e) => handleNewProjectFormChange('address', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* City */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                <input
+                  type="text"
+                  placeholder="City Name"
+                  value={newProjectFormData.city}
+                  onChange={(e) => handleNewProjectFormChange('city', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* State */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                <select
+                  value={newProjectFormData.state}
+                  onChange={(e) => handleNewProjectFormChange('state', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
+                  style={{ 
+                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, 
+                    backgroundPosition: 'right 0.75rem center', 
+                    backgroundRepeat: 'no-repeat', 
+                    backgroundSize: '1.25em 1.25em',
+                    paddingRight: '2.5rem'
+                  }}
+                >
+                  <option value="">Select State</option>
+                  <option value="AL">Alabama</option>
+                  <option value="AK">Alaska</option>
+                  <option value="AZ">Arizona</option>
+                  <option value="AR">Arkansas</option>
+                  <option value="CA">California</option>
+                  <option value="CO">Colorado</option>
+                  <option value="CT">Connecticut</option>
+                  <option value="DE">Delaware</option>
+                  <option value="FL">Florida</option>
+                  <option value="GA">Georgia</option>
+                  <option value="HI">Hawaii</option>
+                  <option value="ID">Idaho</option>
+                  <option value="IL">Illinois</option>
+                  <option value="IN">Indiana</option>
+                  <option value="IA">Iowa</option>
+                  <option value="KS">Kansas</option>
+                  <option value="KY">Kentucky</option>
+                  <option value="LA">Louisiana</option>
+                  <option value="ME">Maine</option>
+                  <option value="MD">Maryland</option>
+                  <option value="MA">Massachusetts</option>
+                  <option value="MI">Michigan</option>
+                  <option value="MN">Minnesota</option>
+                  <option value="MS">Mississippi</option>
+                  <option value="MO">Missouri</option>
+                  <option value="MT">Montana</option>
+                  <option value="NE">Nebraska</option>
+                  <option value="NV">Nevada</option>
+                  <option value="NH">New Hampshire</option>
+                  <option value="NJ">New Jersey</option>
+                  <option value="NM">New Mexico</option>
+                  <option value="NY">New York</option>
+                  <option value="NC">North Carolina</option>
+                  <option value="ND">North Dakota</option>
+                  <option value="OH">Ohio</option>
+                  <option value="OK">Oklahoma</option>
+                  <option value="OR">Oregon</option>
+                  <option value="PA">Pennsylvania</option>
+                  <option value="RI">Rhode Island</option>
+                  <option value="SC">South Carolina</option>
+                  <option value="SD">South Dakota</option>
+                  <option value="TN">Tennessee</option>
+                  <option value="TX">Texas</option>
+                  <option value="UT">Utah</option>
+                  <option value="VT">Vermont</option>
+                  <option value="VA">Virginia</option>
+                  <option value="WA">Washington</option>
+                  <option value="WV">West Virginia</option>
+                  <option value="WI">Wisconsin</option>
+                  <option value="WY">Wyoming</option>
+                </select>
+              </div>
+
+              {/* ZIP */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">ZIP</label>
+                <input
+                  type="text"
+                  placeholder="99999"
+                  maxLength={5}
+                  value={newProjectFormData.zip}
+                  onChange={(e) => handleNewProjectFormChange('zip', e.target.value.replace(/\D/g, '').slice(0, 5))}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Date Received */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date Received</label>
+                <input
+                  type="date"
+                  placeholder="99/99/9999"
+                  value={newProjectFormData.dateReceived}
+                  onChange={(e) => handleNewProjectFormChange('dateReceived', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex flex-col-reverse lg:flex-row gap-3 pt-2">
+                <button 
+                  onClick={() => {
+                    setNewProjectModalOpen(false)
+                    resetNewProjectForm()
+                  }}
+                  className="flex-1 px-6 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors"
+                  style={{ color: '#111111', border: '1px solid #111111' }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#111111'
+                    e.currentTarget.style.color = '#FFFFFF'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent'
+                    e.currentTarget.style.color = '#111111'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={() => {
+                    console.log('Creating project:', newProjectFormData)
+                    setNewProjectModalOpen(false)
+                    resetNewProjectForm()
+                  }}
+                  className="flex-1 px-6 py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-colors"
+                  style={{ backgroundColor: '#1D1D1F' }}
+                >
+                  Create Project
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
