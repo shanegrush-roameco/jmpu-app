@@ -4,3 +4,23 @@
 body {
   font-family: 'Inter', sans-serif;
 }
+/* Custom scrollbar for stat cards */
+.stats-scroll::-webkit-scrollbar {
+  height: 4px;
+  margin-top: 8px;
+}
+
+.stats-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.stats-scroll::-webkit-scrollbar-thumb {
+  background: #D1D5DB;
+  border-radius: 5px;
+}
+
+.stats-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: #D1D5DB transparent;
+  padding-bottom: 12px;
+}

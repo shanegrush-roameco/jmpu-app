@@ -6,6 +6,7 @@ function Login() {
       provider: 'azure',
       options: {
         scopes: 'email profile',
+        redirectTo: window.location.origin,
       },
     })
     if (error) {
@@ -17,12 +18,12 @@ function Login() {
     <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: '#F4F4F4' }}>
       {/* Login Card */}
       <div 
-  className="w-full max-w-md p-8 bg-white"
-  style={{
-    borderRadius: '16px',
-    boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
-  }}
->
+        className="w-full max-w-md p-8 bg-white"
+        style={{
+          borderRadius: '16px',
+          boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
+        }}
+      >
         {/* Logo */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">JMPU</h1>

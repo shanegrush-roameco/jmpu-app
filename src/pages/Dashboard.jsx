@@ -105,6 +105,7 @@ const navItems = [
 function Dashboard({ user }) {
   const [completedTasks, setCompletedTasks] = useState(new Set())
   const [activeNav, setActiveNav] = useState('dashboard')
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -131,8 +132,29 @@ function Dashboard({ user }) {
 
   return (
     <div className="h-screen flex overflow-hidden" style={{ backgroundColor: '#F4F4F4' }}>
-      {/* Sidebar */}
-      <aside className="w-[200px] bg-white flex flex-col flex-shrink-0 h-full pt-6 pl-4 pr-0">
+      {/* Mobile Menu Overlay */}
+      {mobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar - Hidden on mobile, shown on lg+ */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 w-[200px] bg-white flex flex-col flex-shrink-0 h-full pt-6 pl-4 pr-0
+        transform transition-transform duration-300 ease-in-out
+        lg:relative lg:translate-x-0
+        ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        {/* Close button for mobile */}
+        <button 
+          className="absolute top-4 right-4 p-2 lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        >
+          <CloseIcon className="w-5 h-5 text-gray-500" />
+        </button>
+
         {/* Logo - outside container, above */}
         <h1 className="text-xl font-bold mb-6 text-center pr-4" style={{ color: '#1D1D1F' }}>JMPU</h1>
 
@@ -153,7 +175,10 @@ function Dashboard({ user }) {
             {navItems.map((item) => (
               <button
                 key={item.id}
-                onClick={() => setActiveNav(item.id)}
+                onClick={() => {
+                  setActiveNav(item.id)
+                  setMobileMenuOpen(false)
+                }}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left mb-1 transition-colors ${
                   activeNav === item.id 
                     ? 'bg-gray-100 font-medium' 
@@ -181,9 +206,9 @@ function Dashboard({ user }) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col h-full overflow-hidden">
-        {/* Top Header */}
-        <header className="bg-white border-b border-gray-100 px-8 py-4 flex items-center justify-between flex-shrink-0">
+      <main className="flex-1 flex flex-col h-full overflow-hidden w-full">
+        {/* Desktop Header - Hidden on mobile */}
+        <header className="hidden lg:flex bg-white border-b border-gray-100 px-8 py-4 items-center justify-between flex-shrink-0">
           {/* Search */}
           <div className="flex-1 max-w-xl">
             <div className="relative">
@@ -217,14 +242,54 @@ function Dashboard({ user }) {
           </div>
         </header>
 
+        {/* Mobile Header */}
+        <header className="flex lg:hidden bg-white border-b border-gray-100 px-4 py-3 items-center justify-between flex-shrink-0 relative">
+          {/* Hamburger Menu */}
+          <button 
+            className="p-2 -ml-2 z-10"
+            onClick={() => setMobileMenuOpen(true)}
+          >
+            <HamburgerIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
+          </button>
+
+          {/* Logo - Absolutely centered */}
+          <h1 className="absolute left-1/2 -translate-x-1/2 text-lg font-bold" style={{ color: '#1D1D1F' }}>JMPU</h1>
+
+          {/* Right side - Search & Avatar */}
+          <div className="flex items-center gap-2 z-10">
+            <button className="p-2">
+              <SearchIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
+            </button>
+            <div 
+              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium cursor-pointer"
+              style={{ 
+                color: '#111111',
+                border: '1px solid #111111'
+              }}
+              onClick={handleLogout}
+              title="Click to logout"
+            >
+              {getInitials(userName)}
+            </div>
+          </div>
+        </header>
+
         {/* Page Content - Scrollable Area */}
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto p-4 lg:p-8">
           {/* Page Title & Actions */}
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-semibold" style={{ color: '#1D1D1F' }}>Admin Dashboard</h2>
-            <div className="flex gap-3">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-6 gap-4">
+            <h2 className="text-xl lg:text-2xl font-semibold" style={{ color: '#1D1D1F' }}>Admin Dashboard</h2>
+            
+            {/* Action Buttons - Stacked on mobile, row on desktop */}
+            <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
               <button 
-                className="group px-5 py-2.5 bg-transparent rounded-full text-sm font-medium transition-colors hover:text-white"
+                className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors order-1 lg:order-2"
+                style={{ backgroundColor: '#1D1D1F' }}
+              >
+                New Project
+              </button>
+              <button 
+                className="w-full lg:w-auto group px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors hover:text-white order-2 lg:order-1"
                 style={{ 
                   color: '#111111', 
                   border: '1px solid #111111',
@@ -240,69 +305,65 @@ function Dashboard({ user }) {
               >
                 New Task
               </button>
-              <button 
-                className="px-5 py-2.5 rounded-full text-sm font-medium text-white hover:opacity-90 transition-colors"
-                style={{ backgroundColor: '#1D1D1F' }}
-              >
-                New Project
-              </button>
             </div>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-5 gap-4 mb-6">
-            {stats.map((stat, index) => (
-              <div 
-                key={index}
-                className="bg-white p-5 relative"
-                style={{
-                  borderRadius: '16px',
-                  boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
-                }}
-              >
-                {stat.statusDot && (
-                  <div 
-                    className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full"
-                    style={{ backgroundColor: stat.statusDot }}
-                  />
-                )}
-                <p className="text-sm mb-1" style={{ color: '#1D1D1F' }}>{stat.label}</p>
-                <div className="flex items-baseline gap-1.5 mb-2">
-                  <span className="text-3xl font-semibold" style={{ color: '#1D1D1F' }}>
-                    {stat.value}
-                  </span>
-                  <span className="text-base font-bold" style={{ color: '#919191' }}>
-                    Projects
-                  </span>
-                </div>
-                {/* Multi-segment progress bar */}
-                <div className="w-full h-1.5 bg-gray-100 rounded-full mb-2 overflow-hidden flex">
-                  {stat.progressSegments.map((segment, segIndex) => (
+          {/* Stats Cards - Horizontal scroll on mobile, grid on desktop */}
+          <div className="mb-6 -mr-4 lg:mr-0">
+            <div className="flex lg:grid lg:grid-cols-5 gap-4 overflow-x-auto snap-x snap-mandatory stats-scroll pr-4 lg:pr-0">
+              {stats.map((stat, index) => (
+                <div 
+                  key={index}
+                  className="bg-white p-5 relative flex-shrink-0 min-w-[200px] lg:min-w-0 snap-start"
+                  style={{
+                    borderRadius: '16px',
+                    boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
+                  }}
+                >
+                  {stat.statusDot && (
                     <div 
-                      key={segIndex}
-                      className="h-full"
-                      style={{ 
-                        width: `${segment.percent}%`,
-                        backgroundColor: segment.color 
-                      }}
+                      className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full"
+                      style={{ backgroundColor: stat.statusDot }}
                     />
-                  ))}
-                </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-gray-500">{stat.subtitle}</p>
-                  {stat.showArrow && (
-                    <ChevronRightIcon className="w-4 h-4 text-gray-400" />
                   )}
+                  <p className="text-sm mb-1" style={{ color: '#1D1D1F' }}>{stat.label}</p>
+                  <div className="flex items-baseline gap-1.5 mb-2">
+                    <span className="text-3xl font-semibold" style={{ color: '#1D1D1F' }}>
+                      {stat.value}
+                    </span>
+                    <span className="text-base font-bold" style={{ color: '#919191' }}>
+                      Projects
+                    </span>
+                  </div>
+                  {/* Multi-segment progress bar */}
+                  <div className="w-full h-1.5 bg-gray-100 rounded-full mb-2 overflow-hidden flex">
+                    {stat.progressSegments.map((segment, segIndex) => (
+                      <div 
+                        key={segIndex}
+                        className="h-full"
+                        style={{ 
+                          width: `${segment.percent}%`,
+                          backgroundColor: segment.color 
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-gray-500 truncate pr-2">{stat.subtitle}</p>
+                    {stat.showArrow && (
+                      <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
-          {/* Main Content Grid */}
-          <div className="grid grid-cols-12 gap-6">
+          {/* Main Content Grid - Single column on mobile, 12-col grid on desktop */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Today's Tasks */}
             <div 
-              className="col-span-7 bg-white overflow-hidden"
+              className="lg:col-span-7 bg-white overflow-hidden"
               style={{
                 borderRadius: '16px',
                 boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
@@ -322,7 +383,7 @@ function Dashboard({ user }) {
                   >
                     <button 
                       onClick={() => toggleTask(task.id)}
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors flex-shrink-0 ${
                         completedTasks.has(task.id)
                           ? 'bg-emerald-500 border-emerald-500'
                           : 'border-gray-300 hover:border-gray-400'
@@ -341,7 +402,7 @@ function Dashboard({ user }) {
                       </p>
                     </div>
                     <div 
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium"
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
                       style={{ 
                         color: '#111111',
                         border: '1px solid #111111'
@@ -355,10 +416,11 @@ function Dashboard({ user }) {
             </div>
 
             {/* Right Column */}
-            <div className="col-span-5 space-y-6">
-              {/* Financials */}
+            <div className="lg:col-span-5 space-y-6">
+              {/* Financials - Table on desktop, Lists on mobile */}
+              {/* Desktop Financials Table */}
               <div 
-                className="bg-white overflow-hidden"
+                className="hidden lg:block bg-white overflow-hidden"
                 style={{
                   borderRadius: '16px',
                   boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
@@ -400,6 +462,82 @@ function Dashboard({ user }) {
                 </div>
               </div>
 
+              {/* Mobile Financials - Separate Lists */}
+              <div className="lg:hidden space-y-6">
+                {/* Open Invoices */}
+                <div 
+                  className="bg-white overflow-hidden"
+                  style={{
+                    borderRadius: '16px',
+                    boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
+                  }}
+                >
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                    <h3 className="font-semibold text-gray-900">Open Invoices</h3>
+                    <button className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+                      View All <ChevronRightIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="px-6 py-2">
+                    {openInvoices.map((invoice, index) => (
+                      <div key={index} className="py-2">
+                        <span className="text-sm text-gray-900 underline cursor-pointer hover:text-blue-600">
+                          {invoice.id}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Invoice Amount */}
+                <div 
+                  className="bg-white overflow-hidden"
+                  style={{
+                    borderRadius: '16px',
+                    boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
+                  }}
+                >
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                    <h3 className="font-semibold text-gray-900">Invoice Amount</h3>
+                    <button className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+                      View All <ChevronRightIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="px-6 py-2">
+                    {openInvoices.map((invoice, index) => (
+                      <div key={index} className="py-2">
+                        <span className="text-sm text-gray-700">{invoice.amount}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Draw Dates */}
+                <div 
+                  className="bg-white overflow-hidden"
+                  style={{
+                    borderRadius: '16px',
+                    boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
+                  }}
+                >
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                    <h3 className="font-semibold text-gray-900">Draw Dates</h3>
+                    <button className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+                      View All <ChevronRightIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="px-6 py-2">
+                    {openInvoices.map((invoice, index) => (
+                      <div key={index} className="py-2">
+                        <span className="text-sm text-emerald-600 font-medium">
+                          {invoice.date} ({invoice.status})
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               {/* Due This Week */}
               <div 
                 className="bg-white overflow-hidden"
@@ -425,7 +563,7 @@ function Dashboard({ user }) {
                         <p className="text-sm font-medium text-gray-900">{item.title}</p>
                         <p className="text-xs text-gray-500">{item.project}</p>
                       </div>
-                      <span className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded ${
+                      <span className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded flex-shrink-0 ${
                         item.overdue 
                           ? 'text-red-600 bg-red-50' 
                           : 'text-gray-500 bg-gray-100'
@@ -525,9 +663,9 @@ function DueIcon({ name }) {
   }
 }
 
-function SearchIcon({ className }) {
+function SearchIcon({ className, style }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    <svg className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
     </svg>
   )
@@ -561,6 +699,22 @@ function ClockIcon({ className }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  )
+}
+
+function HamburgerIcon({ className, style }) {
+  return (
+    <svg className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+    </svg>
+  )
+}
+
+function CloseIcon({ className }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
     </svg>
   )
 }
