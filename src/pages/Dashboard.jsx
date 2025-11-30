@@ -1,31 +1,27 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import NotificationsPanel, { useNotifications } from '../components/NotificationsPanel'
 
 // Mock data based on design
 const stats = [
   { 
     label: 'Total Projects', 
-    value: 40, 
-    subtitle: '22 In Progress • 3 At Risk',
+    value: 12, 
+    subtitle: 'View',
     showArrow: true,
-    // Progress segments: green (in progress), yellow (at risk), blue (completed)
     progressSegments: [
-      { percent: 55, color: '#22C55E' },  // 22/40 = 55%
-      { percent: 7.5, color: '#EAB308' }, // 3/40 = 7.5%
-      { percent: 10, color: '#3B82F6' },  // 4/40 = 10%
+      { percent: 100, color: '#22C55E' },
     ]
   },
   { 
     label: 'In Progress', 
-    value: 22, 
-    subtitle: '-2 since last week',
+    value: 12, 
+    subtitle: 'View',
     statusDot: '#22C55E',
     showArrow: true,
     progressSegments: [
-      { percent: 55, color: '#22C55E' },
-      { percent: 7.5, color: '#EAB308' },
-      { percent: 10, color: '#3B82F6' },
+      { percent: 100, color: '#22C55E' },
     ]
   },
   { 
@@ -35,49 +31,44 @@ const stats = [
     statusDot: '#EAB308',
     showArrow: true,
     progressSegments: [
-      { percent: 55, color: '#22C55E' },
-      { percent: 7.5, color: '#EAB308' },
-      { percent: 10, color: '#3B82F6' },
+      { percent: 25, color: '#EAB308' },
     ]
   },
   { 
     label: 'Completed', 
     value: 4, 
-    subtitle: '↑ 33% from last month',
+    subtitle: 'View',
     statusDot: '#3B82F6',
     showArrow: true,
     progressSegments: [
-      { percent: 55, color: '#22C55E' },
-      { percent: 7.5, color: '#EAB308' },
-      { percent: 10, color: '#3B82F6' },
-    ]
-  },
-  { 
-    label: 'Starting', 
-    value: 11, 
-    subtitle: 'View',
-    statusDot: '#E5E7EB',
-    showArrow: true,
-    progressSegments: [
-      { percent: 55, color: '#22C55E' },
-      { percent: 7.5, color: '#EAB308' },
-      { percent: 10, color: '#3B82F6' },
+      { percent: 33, color: '#3B82F6' },
     ]
   },
 ]
 
-const todaysTasks = [
+const myProjects = [
+  { name: 'Project Alpha', status: 'In Progress', statusColor: '#22C55E' },
+  { name: 'Project Bravo', status: 'In Progress', statusColor: '#22C55E' },
+  { name: 'Project Charlie', status: 'In Progress', statusColor: '#22C55E' },
+  { name: 'Project Delta', status: 'At Risk', statusColor: '#EF4444', hasWarning: true },
+  { name: 'Project Echo', status: 'In Progress', statusColor: '#22C55E' },
+  { name: 'Project Foxtrot', status: 'At Risk', statusColor: '#EF4444', hasWarning: true },
+  { name: 'Project Gamma', status: 'In Progress', statusColor: '#22C55E' },
+  { name: 'Project Hotel', status: 'In Progress', statusColor: '#22C55E' },
+  { name: 'Project Indigo', status: 'In Progress', statusColor: '#22C55E' },
+  { name: 'Project Juliet', status: 'In Progress', statusColor: '#22C55E' },
+  { name: 'Project Kilo', status: 'In Progress', statusColor: '#22C55E' },
+  { name: 'Project Lima', status: 'At Risk', statusColor: '#EF4444', hasWarning: true },
+]
+
+const myTasks = [
   { id: 1, title: 'Inspect Job Site A', project: 'Project Alpha', assignee: 'S. Kerley', avatar: 'SK' },
   { id: 2, title: 'Meet Client for Walkthrough', project: 'Project Bravo', assignee: 'S. Kerley', avatar: 'SK' },
   { id: 3, title: 'Mark Hazards for Removal', project: 'Project Alpha', assignee: 'S. Kerley', avatar: 'SK' },
   { id: 4, title: 'Approve Material Purchase Request', project: 'Project Alpha', assignee: 'S. Kerley', avatar: 'SK' },
   { id: 5, title: 'Submit Final Invoice', project: 'Project Foxtrot', assignee: 'J. Vandervennet', avatar: 'JV' },
   { id: 6, title: 'Confirm Dumpster Delivery', project: 'Project Charlie', assignee: 'S. Kerley', avatar: 'SK' },
-  { id: 7, title: 'Walk Foundation with Client', project: 'Project Delta', assignee: 'J. Vandervennet', avatar: 'JV' },
-  { id: 8, title: 'Schedule Framing Inspection', project: 'Project Alpha', assignee: 'S. Kerley', avatar: 'SK' },
-  { id: 9, title: 'Upload Signed Change Order', project: 'Project Bravo', assignee: 'J. Vandervennet', avatar: 'JV' },
-  { id: 10, title: 'Finalize Paint Color Approvals', project: 'Project Echo', assignee: 'S. Kerley', avatar: 'SK' },
-  { id: 11, title: 'Confirm HVAC Delivery', project: 'Project Foxtrot', assignee: 'J. Vandervennet', avatar: 'JV' },
+  { id: 7, title: 'Schedule Framing Inspection', project: 'Project Alpha', assignee: 'S. Kerley', avatar: 'SK' },
 ]
 
 const openInvoices = [
@@ -103,11 +94,21 @@ const navItems = [
   { id: 'profiles', label: 'Profiles', icon: 'users' },
 ]
 
+const recentSearches = [
+  'Recent Search Query 1',
+  'Recent Search Query 2', 
+  'Recent Search Query 3',
+  'Recent Search Query 4',
+  'Recent Search Query 5',
+]
+
 function Dashboard({ user }) {
   const navigate = useNavigate()
   const [completedTasks, setCompletedTasks] = useState(new Set())
   const [activeNav, setActiveNav] = useState('dashboard')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
+  const notifications = useNotifications()
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
@@ -146,75 +147,157 @@ function Dashboard({ user }) {
 
   return (
     <div className="h-screen flex overflow-hidden" style={{ backgroundColor: '#F4F4F4' }}>
+      
       {/* Mobile Menu Overlay */}
-      {mobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-        />
-      )}
-
-      {/* Sidebar - Hidden on mobile, shown on lg+ */}
-      <aside className={`
-        fixed inset-y-0 left-0 z-50 w-[200px] bg-white flex flex-col flex-shrink-0 h-full pt-6 pl-4 pr-0
-        transform transition-transform duration-300 ease-in-out
-        lg:relative lg:translate-x-0
-        ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
-        {/* Close button for mobile */}
-        <button 
-          className="absolute top-4 right-4 p-2 lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          <CloseIcon className="w-5 h-5 text-gray-500" />
-        </button>
-
-        {/* Logo - outside container, above */}
-        <h1 className="text-xl font-bold mb-6 text-center pr-4" style={{ color: '#1D1D1F' }}>JMPU</h1>
-
-        {/* Nav Container - no right border, bleeds into content */}
-        <div 
-          className="flex-1 px-4 py-5 flex flex-col"
-          style={{ 
-            borderTop: '1px solid #E8E8E8',
-            borderLeft: '1px solid #E8E8E8',
-            borderBottom: '1px solid #E8E8E8',
-            borderRight: 'none',
-            borderTopLeftRadius: '16px',
-            borderBottomLeftRadius: '16px'
-          }}
-        >
-          {/* Navigation */}
-          <nav className="flex-1">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => handleNavClick(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left mb-1 transition-colors ${
-                  activeNav === item.id 
-                    ? 'bg-gray-100 font-medium' 
-                    : 'hover:bg-gray-50'
-                }`}
-                style={{ color: activeNav === item.id ? '#1D1D1F' : '#6B7280' }}
-              >
-                <NavIcon name={item.icon} active={activeNav === item.id} />
-                <span className="text-sm">{item.label}</span>
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        {/* Settings - outside container, at bottom */}
-        <div className="py-4">
+{mobileMenuOpen && (
+  <div className="fixed inset-0 z-50 lg:hidden">
+    {/* Backdrop */}
+    <div 
+      className="absolute inset-0 bg-black/50"
+      onClick={() => setMobileMenuOpen(false)}
+    />
+    
+    {/* Menu Panel */}
+    <div className="absolute top-0 left-0 right-0 bg-white rounded-b-2xl shadow-lg">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <div className="flex items-center gap-3">
           <button 
-            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
-            style={{ color: '#6B7280' }}
+            className="p-2 -ml-2"
+            onClick={() => setMobileMenuOpen(false)}
           >
-            <NavIcon name="settings" />
-            <span className="text-sm">Settings</span>
+            <CloseIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
           </button>
+          <h1 className="text-lg font-bold" style={{ color: '#1D1D1F' }}>JMPU</h1>
         </div>
-      </aside>
+        <div className="flex items-center gap-2">
+          <button 
+  className="p-2"
+  onClick={() => {
+    setMobileMenuOpen(false)
+    setMobileSearchOpen(true)
+  }}
+>
+  <SearchIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
+</button>
+          <div 
+  className="relative"
+  onClick={() => {
+    setMobileMenuOpen(false)
+    notifications.toggle()
+  }}
+>
+  <div 
+    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium cursor-pointer"
+    style={{ 
+      color: '#111111',
+      border: '1px solid #111111'
+    }}
+  >
+    {getInitials(userName)}
+  </div>
+  {notifications.unreadCount > 0 && (
+    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
+  )}
+</div>
+        </div>
+      </div>
+      
+      {/* Navigation Items */}
+      <nav className="px-4 py-4">
+        <button
+          onClick={() => handleNavClick('dashboard')}
+          className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left mb-1 hover:bg-gray-50 transition-colors"
+          style={{ color: '#1D1D1F' }}
+        >
+          <NavIcon name="home" active={activeNav === 'dashboard'} />
+          <span className="text-base">Dashboard</span>
+        </button>
+        <button
+          onClick={() => handleNavClick('projects')}
+          className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left mb-1 hover:bg-gray-50 transition-colors"
+          style={{ color: '#1D1D1F' }}
+        >
+          <NavIcon name="folder" active={activeNav === 'projects'} />
+          <span className="text-base">Projects</span>
+        </button>
+        <button
+          onClick={() => handleNavClick('reports')}
+          className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left mb-1 hover:bg-gray-50 transition-colors"
+          style={{ color: '#1D1D1F' }}
+        >
+          <NavIcon name="chart" active={activeNav === 'reports'} />
+          <span className="text-base">Reports</span>
+        </button>
+        <button
+          onClick={() => handleNavClick('profiles')}
+          className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left mb-1 hover:bg-gray-50 transition-colors"
+          style={{ color: '#1D1D1F' }}
+        >
+          <NavIcon name="users" active={activeNav === 'profiles'} />
+          <span className="text-base">Profiles</span>
+        </button>
+        <button
+          onClick={() => handleNavClick('settings')}
+          className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left mb-1 hover:bg-gray-50 transition-colors"
+          style={{ color: '#1D1D1F' }}
+        >
+          <NavIcon name="settings" active={activeNav === 'settings'} />
+          <span className="text-base">Settings</span>
+        </button>
+      </nav>
+    </div>
+  </div>
+)}
+
+{/* Sidebar - Desktop only */}
+<aside className="hidden lg:flex w-[200px] bg-white flex-col flex-shrink-0 h-full pt-6 pl-4 pr-0">
+  {/* Logo */}
+  <h1 className="text-xl font-bold mb-6 text-center pr-4" style={{ color: '#1D1D1F' }}>JMPU</h1>
+
+  {/* Nav Container */}
+  <div 
+    className="flex-1 px-4 py-5 flex flex-col"
+    style={{ 
+      borderTop: '1px solid #E8E8E8',
+      borderLeft: '1px solid #E8E8E8',
+      borderBottom: '1px solid #E8E8E8',
+      borderRight: 'none',
+      borderTopLeftRadius: '16px',
+      borderBottomLeftRadius: '16px'
+    }}
+  >
+    {/* Navigation */}
+    <nav className="flex-1">
+      {navItems.map((item) => (
+        <button
+          key={item.id}
+          onClick={() => handleNavClick(item.id)}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left mb-1 transition-colors ${
+            activeNav === item.id 
+              ? 'bg-gray-100 font-medium' 
+              : 'hover:bg-gray-50'
+          }`}
+          style={{ color: activeNav === item.id ? '#1D1D1F' : '#6B7280' }}
+        >
+          <NavIcon name={item.icon} active={activeNav === item.id} />
+          <span className="text-sm">{item.label}</span>
+        </button>
+      ))}
+    </nav>
+  </div>
+
+  {/* Settings */}
+  <div className="py-4">
+    <button 
+      className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
+      style={{ color: '#6B7280' }}
+    >
+      <NavIcon name="settings" />
+      <span className="text-sm">Settings</span>
+    </button>
+  </div>
+</aside>
 
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-full overflow-hidden w-full">
@@ -234,9 +317,27 @@ function Dashboard({ user }) {
 
           {/* Right side */}
           <div className="flex items-center gap-4">
-            <button className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors" style={{ color: '#161616' }}>
-              <BellIcon className="w-5 h-5" />
-            </button>
+            {/* Notifications Button & Panel */}
+            <div className="relative">
+              <button 
+                className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors" 
+                style={{ color: '#161616' }}
+                onClick={notifications.toggle}
+              >
+                <BellIcon className="w-5 h-5" />
+                {notifications.unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full" />
+                )}
+              </button>
+
+              {/* Desktop Notifications Panel */}
+              <NotificationsPanel 
+                isOpen={notifications.isOpen} 
+                onClose={notifications.close}
+                isMobile={false}
+              />
+            </div>
+
             <div className="flex items-center gap-3">
               <div 
                 className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium cursor-pointer"
@@ -254,74 +355,153 @@ function Dashboard({ user }) {
         </header>
 
         {/* Mobile Header */}
-        <header className="flex lg:hidden bg-white border-b border-gray-100 px-4 py-3 items-center justify-between flex-shrink-0 relative">
-          {/* Hamburger Menu */}
+<header className="flex lg:hidden bg-white border-b border-gray-100 px-4 py-3 items-center justify-between flex-shrink-0 relative">
+  {/* Hamburger Menu */}
+  <button 
+    className="p-2 -ml-2 z-10"
+    onClick={() => setMobileMenuOpen(true)}
+  >
+    <HamburgerIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
+  </button>
+
+  {/* Logo - Absolutely centered */}
+  <h1 className="absolute left-1/2 -translate-x-1/2 text-lg font-bold" style={{ color: '#1D1D1F' }}>JMPU</h1>
+
+  {/* Right side - Search & Avatar */}
+  <div className="flex items-center gap-2 z-10">
+    <button 
+      className="p-2"
+      onClick={() => setMobileSearchOpen(true)}
+    >
+      <SearchIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
+    </button>
+    <div className="relative" onClick={notifications.toggle}>
+      <div 
+        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium cursor-pointer"
+        style={{ 
+          color: '#111111',
+          border: '1px solid #111111'
+        }}
+        title="Notifications"
+      >
+        {getInitials(userName)}
+      </div>
+      {notifications.unreadCount > 0 && (
+        <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
+      )}
+    </div>
+  </div>
+</header>
+
+{/* Mobile Search Panel */}
+{mobileSearchOpen && (
+  <div className="fixed inset-0 z-50 lg:hidden">
+    {/* Backdrop */}
+    <div 
+      className="absolute inset-0 bg-black/50"
+      onClick={() => setMobileSearchOpen(false)}
+    />
+    
+    {/* Search Panel */}
+    <div className="absolute top-0 left-0 right-0 bg-white rounded-b-2xl shadow-lg">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <div className="flex items-center gap-3">
           <button 
-            className="p-2 -ml-2 z-10"
-            onClick={() => setMobileMenuOpen(true)}
+  className="p-2 -ml-2"
+  onClick={() => {
+    setMobileSearchOpen(false)
+    setMobileMenuOpen(true)
+  }}
+>
+  <HamburgerIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
+</button>
+          <h1 className="text-lg font-bold" style={{ color: '#1D1D1F' }}>JMPU</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            className="p-2"
+            onClick={() => setMobileSearchOpen(false)}
           >
-            <HamburgerIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
+            <CloseIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
           </button>
-
-          {/* Logo - Absolutely centered */}
-          <h1 className="absolute left-1/2 -translate-x-1/2 text-lg font-bold" style={{ color: '#1D1D1F' }}>JMPU</h1>
-
-          {/* Right side - Search & Avatar */}
-          <div className="flex items-center gap-2 z-10">
-            <button className="p-2">
-              <SearchIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
-            </button>
-            <div 
-              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium cursor-pointer"
-              style={{ 
-                color: '#111111',
-                border: '1px solid #111111'
-              }}
-              onClick={handleLogout}
-              title="Click to logout"
-            >
-              {getInitials(userName)}
-            </div>
+          <div 
+  className="relative"
+  onClick={() => {
+    setMobileSearchOpen(false)
+    notifications.toggle()
+  }}
+>
+  <div 
+    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium cursor-pointer"
+    style={{ 
+      color: '#111111',
+      border: '1px solid #111111'
+    }}
+  >
+    {getInitials(userName)}
+  </div>
+  {notifications.unreadCount > 0 && (
+    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
+  )}
+</div>
+        </div>
+      </div>
+      
+      {/* Search Content */}
+      <div className="p-4">
+        <h2 className="text-lg font-semibold mb-3" style={{ color: '#1D1D1F' }}>Search</h2>
+        
+        {/* Search Input */}
+        <div className="relative mb-4">
+          <input
+            type="text"
+            placeholder="Search"
+            className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <SearchIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        </div>
+        
+        {/* Most Recent */}
+        <div>
+          <h3 className="text-sm font-medium text-gray-500 mb-2 pb-2 border-b border-gray-100">Most Recent</h3>
+          <div className="space-y-1">
+            {recentSearches.map((search, index) => (
+              <button
+                key={index}
+                className="w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+              >
+                {search}
+              </button>
+            ))}
           </div>
-        </header>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+        {/* Mobile Notifications Panel */}
+        <NotificationsPanel
+  isOpen={notifications.isOpen}
+  onClose={notifications.close}
+  onOpenMenu={() => setMobileMenuOpen(true)}
+  onOpenSearch={() => setMobileSearchOpen(true)}
+  isMobile={true}
+/>
 
         {/* Page Content - Scrollable Area */}
         <div className="flex-1 overflow-y-auto p-4 lg:p-8">
-          {/* Page Title & Actions */}
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-6 gap-4">
-            <h2 className="text-xl lg:text-2xl font-semibold" style={{ color: '#1D1D1F' }}>Admin Dashboard</h2>
-            
-            {/* Action Buttons - Stacked on mobile, row on desktop */}
-            <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
-              <button 
-                className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors order-1 lg:order-2"
-                style={{ backgroundColor: '#1D1D1F' }}
-              >
-                New Project
-              </button>
-              <button 
-                className="w-full lg:w-auto group px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors hover:text-white order-2 lg:order-1"
-                style={{ 
-                  color: '#111111', 
-                  border: '1px solid #111111',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#111111'
-                  e.currentTarget.style.color = '#FFFFFF'
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'transparent'
-                  e.currentTarget.style.color = '#111111'
-                }}
-              >
-                New Task
-              </button>
-            </div>
+          {/* Good Morning Greeting */}
+          <div className="mb-6">
+            <h2 className="text-xl lg:text-2xl font-semibold" style={{ color: '#1D1D1F' }}>
+              Good Morning, {userName.split(' ')[0]}
+            </h2>
           </div>
 
           {/* Stats Cards - Horizontal scroll on mobile, grid on desktop */}
           <div className="mb-6 -mr-4 lg:mr-0">
-            <div className="flex lg:grid lg:grid-cols-5 gap-4 overflow-x-auto snap-x snap-mandatory stats-scroll pr-4 lg:pr-0">
+            <div className="flex lg:grid lg:grid-cols-4 gap-4 overflow-x-auto snap-x snap-mandatory stats-scroll pr-4 lg:pr-0">
               {stats.map((stat, index) => (
                 <div 
                   key={index}
@@ -372,7 +552,46 @@ function Dashboard({ user }) {
 
           {/* Main Content Grid - Single column on mobile, 12-col grid on desktop */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Today's Tasks */}
+            {/* My Projects Card */}
+            <div 
+              className="lg:col-span-5 bg-white overflow-hidden"
+              style={{
+                borderRadius: '16px',
+                boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
+              }}
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <h3 className="font-semibold text-gray-900">My Projects</h3>
+                <button 
+                  className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                  onClick={() => navigate('/projects')}
+                >
+                  View All <ChevronRightIcon className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="divide-y divide-gray-50">
+                {myProjects.map((project, index) => (
+                  <div 
+                    key={index}
+                    className="flex items-center justify-between px-6 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/project/${index + 1}`)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-900">{project.name}</span>
+                      <span className="text-sm" style={{ color: project.statusColor }}>{project.status}</span>
+                      {project.hasWarning && (
+                        <WarningIcon className="w-4 h-4 text-amber-500" />
+                      )}
+                    </div>
+                    <button className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+                      View Project <ChevronRightIcon className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* My Tasks Card */}
             <div 
               className="lg:col-span-7 bg-white overflow-hidden"
               style={{
@@ -381,19 +600,19 @@ function Dashboard({ user }) {
               }}
             >
               <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                <h3 className="font-semibold text-gray-900">Today's Tasks</h3>
-                <button className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-                  View All <ChevronRightIcon className="w-4 h-4" />
-                </button>
+                <h3 className="font-semibold text-gray-900">My Tasks</h3>
               </div>
               <div className="divide-y divide-gray-50">
-                {todaysTasks.map((task) => (
+                {myTasks.map((task) => (
                   <div 
                     key={task.id}
                     className="flex items-center gap-4 px-6 py-3.5 hover:bg-gray-50 transition-colors cursor-pointer"
                   >
                     <button 
-                      onClick={() => toggleTask(task.id)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        toggleTask(task.id)
+                      }}
                       className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors flex-shrink-0 ${
                         completedTasks.has(task.id)
                           ? 'bg-emerald-500 border-emerald-500'
@@ -405,18 +624,19 @@ function Dashboard({ user }) {
                       )}
                     </button>
                     <div className="flex-1 min-w-0">
-                      <p className={`text-sm font-medium ${completedTasks.has(task.id) ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                      <p className={`text-sm font-medium ${
+                        completedTasks.has(task.id) ? 'text-gray-400 line-through' : 'text-gray-900'
+                      }`}>
                         {task.title}
                       </p>
-                      <p className="text-xs text-gray-500">
-                        {task.project} • {task.assignee}
-                      </p>
+                      <p className="text-xs text-gray-500">{task.project} • {task.assignee}</p>
                     </div>
                     <div 
                       className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
                       style={{ 
                         color: '#111111',
-                        border: '1px solid #111111'
+                        border: '1px solid #E5E7EB',
+                        backgroundColor: '#F9FAFB'
                       }}
                     >
                       {task.avatar}
@@ -426,165 +646,77 @@ function Dashboard({ user }) {
               </div>
             </div>
 
-            {/* Right Column */}
-            <div className="lg:col-span-5 space-y-6">
-              {/* Financials - Table on desktop, Lists on mobile */}
-              {/* Desktop Financials Table */}
-              <div 
-                className="hidden lg:block bg-white overflow-hidden"
-                style={{
-                  borderRadius: '16px',
-                  boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
-                }}
-              >
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                  <h3 className="font-semibold text-gray-900">Financials</h3>
-                  <button className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-                    View All <ChevronRightIcon className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="px-6 py-3">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="text-xs text-gray-500">
-                        <td className="pb-2">Open Invoices</td>
-                        <td className="pb-2">Invoice Amount</td>
-                        <td className="pb-2">Draw Dates</td>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {openInvoices.map((invoice, index) => (
-                        <tr key={index} className="text-sm">
-                          <td className="py-2">
-                            <span className="text-gray-900 underline cursor-pointer hover:text-blue-600">
-                              {invoice.id}
-                            </span>
-                          </td>
-                          <td className="py-2 text-gray-700">{invoice.amount}</td>
-                          <td className="py-2">
-                            <span className="text-emerald-600 font-medium">
-                              {invoice.date} ({invoice.status})
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+            {/* Open Invoices Card */}
+            <div 
+              className="lg:col-span-4 bg-white overflow-hidden"
+              style={{
+                borderRadius: '16px',
+                boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
+              }}
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <h3 className="font-semibold text-gray-900">Open Invoices</h3>
+                <button className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+                  View All <ChevronRightIcon className="w-4 h-4" />
+                </button>
               </div>
-
-              {/* Mobile Financials - Separate Lists */}
-              <div className="lg:hidden space-y-6">
-                {/* Open Invoices */}
-                <div 
-                  className="bg-white overflow-hidden"
-                  style={{
-                    borderRadius: '16px',
-                    boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
-                  }}
-                >
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <h3 className="font-semibold text-gray-900">Open Invoices</h3>
-                    <button className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-                      View All <ChevronRightIcon className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="px-6 py-2">
-                    {openInvoices.map((invoice, index) => (
-                      <div key={index} className="py-2">
-                        <span className="text-sm text-gray-900 underline cursor-pointer hover:text-blue-600">
-                          {invoice.id}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Invoice Amount */}
-                <div 
-                  className="bg-white overflow-hidden"
-                  style={{
-                    borderRadius: '16px',
-                    boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
-                  }}
-                >
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <h3 className="font-semibold text-gray-900">Invoice Amount</h3>
-                    <button className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-                      View All <ChevronRightIcon className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="px-6 py-2">
-                    {openInvoices.map((invoice, index) => (
-                      <div key={index} className="py-2">
-                        <span className="text-sm text-gray-700">{invoice.amount}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Draw Dates */}
-                <div 
-                  className="bg-white overflow-hidden"
-                  style={{
-                    borderRadius: '16px',
-                    boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
-                  }}
-                >
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                    <h3 className="font-semibold text-gray-900">Draw Dates</h3>
-                    <button className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-                      View All <ChevronRightIcon className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="px-6 py-2">
-                    {openInvoices.map((invoice, index) => (
-                      <div key={index} className="py-2">
-                        <span className="text-sm text-emerald-600 font-medium">
-                          {invoice.date} ({invoice.status})
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              
+              {/* Table Headers */}
+              <div className="grid grid-cols-3 px-6 py-2 border-b border-gray-100 text-xs text-gray-500">
+                <span>Invoice #</span>
+                <span>Amount</span>
+                <span>Draw Date</span>
               </div>
+              
+              <div className="divide-y divide-gray-50">
+                {openInvoices.map((invoice, index) => (
+                  <div 
+                    key={index}
+                    className="grid grid-cols-3 px-6 py-3 hover:bg-gray-50 transition-colors cursor-pointer text-sm"
+                  >
+                    <span className="text-blue-600">{invoice.id}</span>
+                    <span className="text-gray-900">{invoice.amount}</span>
+                    <span className="text-green-600">{invoice.date} ({invoice.status})</span>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-              {/* Due This Week */}
-              <div 
-                className="bg-white overflow-hidden"
-                style={{
-                  borderRadius: '16px',
-                  boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
-                }}
-              >
-                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-                  <h3 className="font-semibold text-gray-900">Due This Week</h3>
-                  <button className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-                    View All <ChevronRightIcon className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="divide-y divide-gray-50 overflow-hidden">
-                  {dueThisWeek.map((item) => (
-                    <div 
-                      key={item.id}
-                      className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50 transition-colors cursor-pointer last:rounded-b-2xl"
-                    >
-                      <DueIcon name={item.icon} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900">{item.title}</p>
-                        <p className="text-xs text-gray-500">{item.project}</p>
-                      </div>
-                      <span className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded flex-shrink-0 ${
-                        item.overdue 
-                          ? 'text-red-600 bg-red-50' 
-                          : 'text-gray-500 bg-gray-100'
-                      }`}>
-                        <ClockIcon className="w-3 h-3" />
-                        {item.date}
-                      </span>
+            {/* Due This Week Card */}
+            <div 
+              className="lg:col-span-8 bg-white overflow-hidden"
+              style={{
+                borderRadius: '16px',
+                boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
+              }}
+            >
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                <h3 className="font-semibold text-gray-900">Due This Week</h3>
+                <button className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+                  View All <ChevronRightIcon className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="divide-y divide-gray-50 overflow-hidden">
+                {dueThisWeek.map((item) => (
+                  <div 
+                    key={item.id}
+                    className="flex items-center gap-3 px-6 py-3 hover:bg-gray-50 transition-colors cursor-pointer last:rounded-b-2xl"
+                  >
+                    <DueIcon name={item.icon} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900">{item.title}</p>
+                      <p className="text-xs text-gray-500">{item.project}</p>
                     </div>
-                  ))}
-                </div>
+                    <span className={`flex items-center gap-1 text-xs font-medium px-2 py-1 rounded flex-shrink-0 ${
+                      item.overdue 
+                        ? 'text-red-600 bg-red-50' 
+                        : 'text-gray-500 bg-gray-100'
+                    }`}>
+                      <ClockIcon className="w-3 h-3" />
+                      {item.date}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -726,6 +858,14 @@ function CloseIcon({ className }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  )
+}
+
+function WarningIcon({ className }) {
+  return (
+    <svg className={className} fill="currentColor" viewBox="0 0 20 20">
+      <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
     </svg>
   )
 }

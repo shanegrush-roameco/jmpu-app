@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import NotificationsPanel, { useNotifications } from '../components/NotificationsPanel'
 
 // Status configuration with colors
 const statusConfig = {
@@ -69,6 +70,14 @@ const navItems = [
   { id: 'profiles', label: 'Profiles', icon: 'users' },
 ]
 
+const recentSearches = [
+  'Recent Search Query 1',
+  'Recent Search Query 2',
+  'Recent Search Query 3',
+  'Recent Search Query 4',
+  'Recent Search Query 5',
+]
+
 function Projects({ user }) {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
@@ -76,6 +85,8 @@ function Projects({ user }) {
   const [selectedProjects, setSelectedProjects] = useState(new Set())
   const [activeNav, setActiveNav] = useState('projects')
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
+  const notifications = useNotifications()
   const [showPendingTooltip, setShowPendingTooltip] = useState(false)
   const [newProjectModalOpen, setNewProjectModalOpen] = useState(false)
   const [newProjectFormData, setNewProjectFormData] = useState({
@@ -166,27 +177,108 @@ function Projects({ user }) {
     <div className="h-screen flex overflow-hidden" style={{ backgroundColor: '#F4F4F4' }}>
       {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-        />
+        <div className="fixed inset-0 z-50 lg:hidden">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          
+          {/* Menu Panel */}
+          <div className="absolute top-0 left-0 right-0 bg-white rounded-b-2xl shadow-lg">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                <button 
+                  className="p-2 -ml-2"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <CloseIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
+                </button>
+                <h1 className="text-lg font-bold" style={{ color: '#1D1D1F' }}>JMPU</h1>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  className="p-2"
+                  onClick={() => {
+                    setMobileMenuOpen(false)
+                    setMobileSearchOpen(true)
+                  }}
+                >
+                  <SearchIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
+                </button>
+                <div 
+                  className="relative"
+                  onClick={() => {
+                    setMobileMenuOpen(false)
+                    notifications.toggle()
+                  }}
+                >
+                  <div 
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium cursor-pointer"
+                    style={{ 
+                      color: '#111111',
+                      border: '1px solid #111111'
+                    }}
+                  >
+                    {getInitials(userName)}
+                  </div>
+                  {notifications.unreadCount > 0 && (
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {/* Navigation Items */}
+            <nav className="px-4 py-4">
+              <button
+                onClick={() => handleNavClick('dashboard')}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left mb-1 hover:bg-gray-50 transition-colors"
+                style={{ color: '#1D1D1F' }}
+              >
+                <NavIcon name="home" active={activeNav === 'dashboard'} />
+                <span className="text-base">Dashboard</span>
+              </button>
+              <button
+                onClick={() => handleNavClick('projects')}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left mb-1 hover:bg-gray-50 transition-colors"
+                style={{ color: '#1D1D1F' }}
+              >
+                <NavIcon name="folder" active={activeNav === 'projects'} />
+                <span className="text-base">Projects</span>
+              </button>
+              <button
+                onClick={() => handleNavClick('reports')}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left mb-1 hover:bg-gray-50 transition-colors"
+                style={{ color: '#1D1D1F' }}
+              >
+                <NavIcon name="chart" active={activeNav === 'reports'} />
+                <span className="text-base">Reports</span>
+              </button>
+              <button
+                onClick={() => handleNavClick('profiles')}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left mb-1 hover:bg-gray-50 transition-colors"
+                style={{ color: '#1D1D1F' }}
+              >
+                <NavIcon name="users" active={activeNav === 'profiles'} />
+                <span className="text-base">Profiles</span>
+              </button>
+              <button
+                onClick={() => handleNavClick('settings')}
+                className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left mb-1 hover:bg-gray-50 transition-colors"
+                style={{ color: '#1D1D1F' }}
+              >
+                <NavIcon name="settings" active={activeNav === 'settings'} />
+                <span className="text-base">Settings</span>
+              </button>
+            </nav>
+          </div>
+        </div>
       )}
 
-      {/* Sidebar - Hidden on mobile, shown on lg+ */}
-      <aside className={`
-        fixed inset-y-0 left-0 z-50 w-[200px] bg-white flex flex-col flex-shrink-0 h-full pt-6 pl-4 pr-0
-        transform transition-transform duration-300 ease-in-out
-        lg:relative lg:translate-x-0
-        ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
-        {/* Close button for mobile */}
-        <button 
-          className="absolute top-4 right-4 p-2 lg:hidden"
-          onClick={() => setMobileMenuOpen(false)}
-        >
-          <CloseIcon className="w-5 h-5 text-gray-500" />
-        </button>
-
+      {/* Sidebar - Desktop only */}
+      <aside className="hidden lg:flex w-[200px] bg-white flex-col flex-shrink-0 h-full pt-6 pl-4 pr-0">
         {/* Logo */}
         <h1 className="text-xl font-bold mb-6 text-center pr-4" style={{ color: '#1D1D1F' }}>JMPU</h1>
 
@@ -252,9 +344,24 @@ function Projects({ user }) {
 
           {/* Right side */}
           <div className="flex items-center gap-4">
-            <button className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors" style={{ color: '#161616' }}>
-              <BellIcon className="w-5 h-5" />
-            </button>
+            {/* Notifications Button & Panel */}
+            <div className="relative">
+              <button 
+                className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors" 
+                style={{ color: '#161616' }}
+                onClick={notifications.toggle}
+              >
+                <BellIcon className="w-5 h-5" />
+                {notifications.unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full" />
+                )}
+              </button>
+              <NotificationsPanel 
+                isOpen={notifications.isOpen} 
+                onClose={notifications.close}
+                isMobile={false}
+              />
+            </div>
             <div className="flex items-center gap-3">
               <div 
                 className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium cursor-pointer"
@@ -273,6 +380,7 @@ function Projects({ user }) {
 
         {/* Mobile Header */}
         <header className="flex lg:hidden bg-white border-b border-gray-100 px-4 py-3 items-center justify-between flex-shrink-0 relative">
+          {/* Hamburger Menu */}
           <button 
             className="p-2 -ml-2 z-10"
             onClick={() => setMobileMenuOpen(true)}
@@ -280,25 +388,131 @@ function Projects({ user }) {
             <HamburgerIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
           </button>
 
-          <h1 className="absolute left-1/2 -translate-x-1/2 text-lg font-bold" style={{ color: '#1D1D1F' }}>JMP</h1>
+          {/* Logo - Absolutely centered */}
+          <h1 className="absolute left-1/2 -translate-x-1/2 text-lg font-bold" style={{ color: '#1D1D1F' }}>JMPU</h1>
 
+          {/* Right side - Search & Avatar */}
           <div className="flex items-center gap-2 z-10">
-            <button className="p-2">
+            <button 
+              className="p-2"
+              onClick={() => setMobileSearchOpen(true)}
+            >
               <SearchIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
             </button>
-            <div 
-              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium cursor-pointer"
-              style={{ 
-                color: '#111111',
-                border: '1px solid #111111'
-              }}
-              onClick={handleLogout}
-              title="Click to logout"
-            >
-              {getInitials(userName)}
+            <div className="relative" onClick={notifications.toggle}>
+              <div 
+                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium cursor-pointer"
+                style={{ 
+                  color: '#111111',
+                  border: '1px solid #111111'
+                }}
+                title="Notifications"
+              >
+                {getInitials(userName)}
+              </div>
+              {notifications.unreadCount > 0 && (
+                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
+              )}
             </div>
           </div>
         </header>
+
+        {/* Mobile Search Panel */}
+        {mobileSearchOpen && (
+          <div className="fixed inset-0 z-50 lg:hidden">
+            {/* Backdrop */}
+            <div 
+              className="absolute inset-0 bg-black/50"
+              onClick={() => setMobileSearchOpen(false)}
+            />
+            
+            {/* Search Panel */}
+            <div className="absolute top-0 left-0 right-0 bg-white rounded-b-2xl shadow-lg">
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                <div className="flex items-center gap-3">
+                  <button 
+                    className="p-2 -ml-2"
+                    onClick={() => {
+                      setMobileSearchOpen(false)
+                      setMobileMenuOpen(true)
+                    }}
+                  >
+                    <HamburgerIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
+                  </button>
+                  <h1 className="text-lg font-bold" style={{ color: '#1D1D1F' }}>JMPU</h1>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    className="p-2"
+                    onClick={() => setMobileSearchOpen(false)}
+                  >
+                    <CloseIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
+                  </button>
+                  <div 
+                    className="relative"
+                    onClick={() => {
+                      setMobileSearchOpen(false)
+                      notifications.toggle()
+                    }}
+                  >
+                    <div 
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium cursor-pointer"
+                      style={{ 
+                        color: '#111111',
+                        border: '1px solid #111111'
+                      }}
+                    >
+                      {getInitials(userName)}
+                    </div>
+                    {notifications.unreadCount > 0 && (
+                      <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Search Content */}
+              <div className="p-4">
+                <h2 className="text-lg font-semibold mb-3" style={{ color: '#1D1D1F' }}>Search</h2>
+                
+                {/* Search Input */}
+                <div className="relative mb-4">
+                  <input
+                    type="text"
+                    placeholder="Search"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <SearchIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                </div>
+                
+                {/* Most Recent */}
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 mb-2 pb-2 border-b border-gray-100">Most Recent</h3>
+                  <div className="space-y-1">
+                    {recentSearches.map((search, index) => (
+                      <button
+                        key={index}
+                        className="w-full text-left px-2 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                      >
+                        {search}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Mobile Notifications Panel */}
+        <NotificationsPanel 
+          isOpen={notifications.isOpen} 
+          onClose={notifications.close}
+          onOpenMenu={() => setMobileMenuOpen(true)}
+          onOpenSearch={() => setMobileSearchOpen(true)}
+          isMobile={true}
+        />
 
         {/* Page Content */}
         <div className="flex-1 overflow-y-auto p-4 lg:p-8">
