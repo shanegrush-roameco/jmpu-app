@@ -94,11 +94,11 @@ const projectData = {
     }
   ],
   files: [
-    { id: 1, name: 'Kitchen-Before01', type: 'JPG', project: 'Project Alpha', uploadedBy: 'S. Kerley' },
-    { id: 2, name: 'Kitchen-Before02', type: 'JPG', project: 'Project Alpha', uploadedBy: 'S. Kerley' },
-    { id: 3, name: 'Kitchen-Before03', type: 'JPG', project: 'Project Alpha', uploadedBy: 'S. Kerley' },
-    { id: 4, name: 'Electrical Permit, Project Alpha #1283614-1', type: 'JPG', project: 'Project Alpha', uploadedBy: 'S. Kerley' },
-    { id: 5, name: 'Garage-Before01', type: 'JPG', project: 'Project Alpha', uploadedBy: 'S. Kerley' },
+    { id: 1, name: 'Kitchen-Before01', type: 'JPG', project: 'Project Alpha', uploadedBy: 'J. O'Berry' },
+    { id: 2, name: 'Kitchen-Before02', type: 'JPG', project: 'Project Alpha', uploadedBy: 'J. O'Berry' },
+    { id: 3, name: 'Kitchen-Before03', type: 'JPG', project: 'Project Alpha', uploadedBy: 'J. O'Berry' },
+    { id: 4, name: 'Electrical Permit, Project Alpha #1283614-1', type: 'JPG', project: 'Project Alpha', uploadedBy: 'J. O'Berry' },
+    { id: 5, name: 'Garage-Before01', type: 'JPG', project: 'Project Alpha', uploadedBy: 'J. O'Berry' },
   ],
   financials: {
     summary: {
