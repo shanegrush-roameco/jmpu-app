@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { CloseLarge, Menu, ChevronRight } from '@carbon/icons-react'
 
 // Mock notifications data based on design
 const notificationsData = [
@@ -108,28 +109,20 @@ function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobil
                 onOpenMenu && onOpenMenu()
               }}
             >
-              <HamburgerIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
+              <Menu size={24} style={{ color: '#1D1D1F' }} />
             </button>
 
             {/* Center - Logo */}
             <h1 className="absolute left-1/2 -translate-x-1/2 text-lg font-bold" style={{ color: '#1D1D1F' }}>JMPU</h1>
 
-            {/* Right side - Search & Close */}
+            {/* Right side - Close */}
             <div className="flex items-center gap-2 z-10">
-              <button 
-                className="p-2"
-                onClick={() => {
-                  onClose()
-                  onOpenSearch && onOpenSearch()
-                }}
-              >
-                <SearchIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
-              </button>
+              
               <button 
                 className="w-8 h-8 flex items-center justify-center"
                 onClick={onClose}
               >
-                <CloseIcon className="w-5 h-5" style={{ color: '#1D1D1F' }} />
+                <CloseLarge size={24} style={{ color: '#1D1D1F' }} />
               </button>
             </div>
           </div>
@@ -183,7 +176,7 @@ function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobil
           {/* Footer */}
           <div className="px-4 py-3 border-t border-gray-100">
             <button className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-              View All <ChevronRightIcon className="w-4 h-4" />
+              View All <ChevronRight size={16} />
             </button>
           </div>
         </div>
@@ -247,43 +240,10 @@ function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobil
       {/* Footer */}
       <div className="px-5 py-3 border-t border-gray-100">
         <button className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-          View All <ChevronRightIcon className="w-4 h-4" />
+          View All <ChevronRight size={16} />
         </button>
       </div>
     </div>
-  )
-}
-
-// Icon Components used within this component
-function CloseIcon({ className }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-    </svg>
-  )
-}
-
-function HamburgerIcon({ className, style }) {
-  return (
-    <svg className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-    </svg>
-  )
-}
-
-function SearchIcon({ className, style }) {
-  return (
-    <svg className={className} style={style} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-    </svg>
-  )
-}
-
-function ChevronRightIcon({ className }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-    </svg>
   )
 }
 
