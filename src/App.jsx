@@ -4,7 +4,7 @@ import { supabase } from './lib/supabase'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Projects from './pages/Projects'
-import ProjectDetail from './pages/ProjectDetail'
+import ProjectDetail from './pages/Projectdetail'
 
 function App() {
   const [session, setSession] = useState(null)
