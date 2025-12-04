@@ -56,16 +56,16 @@ const stats = [
 ]
 
 const myTasks = [
-  { id: 1, title: 'Inspect Job Site A', project: 'Project Alpha', assignee: 'J. O'Berry', avatar: 'JO' },
-  { id: 2, title: 'Meet Client for Walkthrough', project: 'Project Bravo', assignee: 'J. O'Berry', avatar: 'JO' },
-  { id: 3, title: 'Mark Hazards for Removal', project: 'Project Alpha', assignee: 'J. O'Berry', avatar: 'JO' },
-  { id: 4, title: 'Approve Material Purchase Request', project: 'Project Alpha', assignee: 'J. O'Berry', avatar: 'JO' },
+  { id: 1, title: 'Inspect Job Site A', project: 'Project Alpha', assignee: 'J. O\'Berry', avatar: 'JO' },
+  { id: 2, title: 'Meet Client for Walkthrough', project: 'Project Bravo', assignee: 'J. O\'Berry', avatar: 'JO' },
+  { id: 3, title: 'Mark Hazards for Removal', project: 'Project Alpha', assignee: 'J. O\'Berry', avatar: 'JO' },
+  { id: 4, title: 'Approve Material Purchase Request', project: 'Project Alpha', assignee: 'J. O\'Berry', avatar: 'JO' },
   { id: 5, title: 'Submit Final Invoice', project: 'Project Foxtrot', assignee: 'J. Vandervennet', avatar: 'JV' },
-  { id: 6, title: 'Confirm Dumpster Delivery', project: 'Project Charlie', assignee: 'J. O'Berry', avatar: 'JO' },
+  { id: 6, title: 'Confirm Dumpster Delivery', project: 'Project Charlie', assignee: 'J. O\'Berry', avatar: 'JO' },
   { id: 7, title: 'Walk Foundation with Client', project: 'Project Delta', assignee: 'J. Vandervennet', avatar: 'JV' },
-  { id: 8, title: 'Schedule Framing Inspection', project: 'Project Alpha', assignee: 'J. O'Berry', avatar: 'JO' },
+  { id: 8, title: 'Schedule Framing Inspection', project: 'Project Alpha', assignee: 'J. O\'Berry', avatar: 'JO' },
   { id: 9, title: 'Upload Signed Change Order', project: 'Project Bravo', assignee: 'J. Vandervennet', avatar: 'JV' },
-  { id: 10, title: 'Finalize Paint Color Approvals', project: 'Project Echo', assignee: 'J. O'Berry', avatar: 'JO' },
+  { id: 10, title: 'Finalize Paint Color Approvals', project: 'Project Echo', assignee: 'J. O\'Berry', avatar: 'JO' },
   { id: 11, title: 'Confirm HVAC Delivery', project: 'Project Foxtrot', assignee: 'J. Vandervennet', avatar: 'JV' },
 ]
 
