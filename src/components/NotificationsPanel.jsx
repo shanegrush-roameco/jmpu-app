@@ -27,9 +27,9 @@ const notificationsData = [
     user: 'Jake',
     avatar: 'J',
     timestamp: '1 Day ago',
-    message: 'Following up on the HVAC delivery — @Shannon any updates?',
+    message: 'Following up on the HVAC delivery — @Jacob any updates?',
     unread: true,
-    mention: 'Shannon',
+    mention: 'Jacob',
   },
 ]
 
