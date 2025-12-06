@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import GlobalNav from '../components/GlobalNav'
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 // Mock data based on Figma design
 const stats = [
