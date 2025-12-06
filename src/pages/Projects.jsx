@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import GlobalNav from '../components/GlobalNav'
+import DatePicker from '../components/DatePicker'
 
 // Status configuration with colors
 const statusConfig = {
@@ -518,16 +519,11 @@ function Projects({ user }) {
               </div>
 
               {/* Date Received */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date Received</label>
-                <input
-                  type="date"
-                  placeholder="99/99/9999"
-                  value={newProjectFormData.dateReceived}
-                  onChange={(e) => handleNewProjectFormChange('dateReceived', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+              <DatePicker
+                label="Date Received"
+                value={newProjectFormData.dateReceived}
+                onChange={(value) => handleNewProjectFormChange('dateReceived', value)}
+              />
 
               {/* Action Buttons */}
               <div className="flex flex-col-reverse lg:flex-row gap-3 pt-2">

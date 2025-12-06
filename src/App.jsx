@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Projects from './pages/Projects'
 import ProjectDetail from './pages/Projectdetail'
+import Reports from './pages/Reports'
 import { SpeedInsights } from "@vercel/speed-insights/react"
 
 function App() {
@@ -60,6 +61,10 @@ function App() {
         <Route 
           path="/projects/:projectId" 
           element={session ? <ProjectDetail user={session.user} /> : <Navigate to="/login" replace />} 
+        />
+        <Route 
+          path="/reports" 
+          element={session ? <Reports user={session.user} /> : <Navigate to="/login" replace />} 
         />
         {/* Catch all - redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />

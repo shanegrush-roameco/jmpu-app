@@ -111,6 +111,12 @@ function Dashboard({ user }) {
         {/* Action Buttons */}
         <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
           <button 
+            className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
+            style={{ backgroundColor: '#1D1D1F' }}
+          >
+            New Project
+          </button>
+          <button 
             className="w-full lg:w-auto px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
             style={{ 
               color: '#111111', 
@@ -126,12 +132,6 @@ function Dashboard({ user }) {
             }}
           >
             New Task
-          </button>
-          <button 
-            className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
-            style={{ backgroundColor: '#1D1D1F' }}
-          >
-            New Project
           </button>
         </div>
       </div>
