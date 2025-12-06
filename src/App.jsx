@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Projects from './pages/Projects'
 import ProjectDetail from './pages/Projectdetail'
+import { SpeedInsights } from "@vercel/speed-insights/react"
 
 function App() {
   const [session, setSession] = useState(null)
@@ -63,6 +64,7 @@ function App() {
         {/* Catch all - redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <SpeedInsights />
     </BrowserRouter>
   )
 }
