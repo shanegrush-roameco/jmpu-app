@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { CloseLarge, Menu, ChevronRight } from '@carbon/icons-react'
+import { CloseLarge, Menu, ChevronRight, Logout } from '@carbon/icons-react'
+import { supabase } from '../lib/supabase'
 
 // Mock notifications data based on design
 const notificationsData = [
@@ -27,9 +28,9 @@ const notificationsData = [
     user: 'Jake',
     avatar: 'J',
     timestamp: '1 Day ago',
-    message: 'Following up on the HVAC delivery — @Jacob any updates?',
+    message: 'Following up on the HVAC delivery — @Tyler any updates?',
     unread: true,
-    mention: 'Jacob',
+    mention: 'Tyler',
   },
 ]
 
@@ -68,6 +69,15 @@ function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobil
     return () => window.removeEventListener('keydown', handleEsc)
   }, [isOpen, onClose])
 
+  // Handle logout
+  const handleLogout = async () => {
+    onClose()
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      console.error('Logout error:', error.message)
+    }
+  }
+
   // Function to render message with @mentions highlighted
   const renderMessageWithMentions = (message, mention) => {
     if (!mention) return message
@@ -94,7 +104,7 @@ function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobil
           onClick={onClose}
         />
         
-        {/* Panel - removed animate-slideDown */}
+        {/* Panel */}
         <div 
           className="fixed top-0 left-0 right-0 bg-white z-50 lg:hidden rounded-b-2xl"
           style={{ boxShadow: '0 4px 24px rgba(0, 0, 0, 0.12)' }}
@@ -117,7 +127,6 @@ function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobil
 
             {/* Right side - Close */}
             <div className="flex items-center gap-2 z-10">
-              
               <button 
                 className="w-8 h-8 flex items-center justify-center"
                 onClick={onClose}
@@ -133,7 +142,7 @@ function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobil
           </div>
 
           {/* Notification Items */}
-          <div className="max-h-[60vh] overflow-y-auto">
+          <div className="max-h-[50vh] overflow-y-auto">
             {notifications.map((notification) => (
               <div 
                 key={notification.id}
@@ -173,10 +182,29 @@ function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobil
             ))}
           </div>
 
-          {/* Footer */}
-          <div className="px-4 py-3 border-t border-gray-100">
-            <button className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-              View All <ChevronRight size={16} />
+          {/* Footer Actions */}
+          <div className="px-6 py-6 border-t border-gray-100">
+            {/* View All Notifications Button */}
+            <button 
+              className="w-full flex items-center justify-between px-0 py-4 text-sm font-medium hover:opacity-70 transition-opacity"
+              style={{ 
+                borderTop: '1px solid #E5E5E5',
+                borderBottom: '1px solid #E5E5E5',
+                color: '#1D1D1F'
+              }}
+            >
+              <span>View All Notifications</span>
+              <ChevronRight size={20} />
+            </button>
+
+            {/* Logout */}
+            <button 
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 py-4 text-sm hover:opacity-70 transition-opacity"
+              style={{ color: '#1D1D1F' }}
+            >
+              <Logout size={20} />
+              <span>Logout</span>
             </button>
           </div>
         </div>
@@ -192,16 +220,16 @@ function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobil
       style={{ boxShadow: '0 4px 24px rgba(0, 0, 0, 0.12)' }}
     >
       {/* Header */}
-      <div className="px-5 py-4 border-b border-gray-100">
+      <div className="px-6 py-4 border-b border-gray-100">
         <h3 className="font-semibold text-gray-900">Notifications</h3>
       </div>
 
       {/* Notification Items */}
-      <div className="max-h-[400px] overflow-y-auto">
+      <div className="max-h-[320px] overflow-y-auto">
         {notifications.map((notification) => (
           <div 
             key={notification.id}
-            className="px-5 py-4 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0"
+            className="px-6 py-4 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0"
           >
             <div className="flex gap-3">
               {/* Avatar */}
@@ -237,10 +265,29 @@ function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobil
         ))}
       </div>
 
-      {/* Footer */}
-      <div className="px-5 py-3 border-t border-gray-100">
-        <button className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-          View All <ChevronRight size={16} />
+      {/* Footer Actions */}
+      <div className="px-6 py-6 border-t border-gray-100">
+        {/* View All Notifications Button */}
+        <button 
+          className="w-full flex items-center justify-between px-0 py-4 text-sm font-medium hover:opacity-70 transition-opacity"
+          style={{ 
+            borderTop: '1px solid #E5E5E5',
+            borderBottom: '1px solid #E5E5E5',
+            color: '#1D1D1F'
+          }}
+        >
+          <span>View All Notifications</span>
+          <ChevronRight size={20} />
+        </button>
+
+        {/* Logout */}
+        <button 
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 py-4 text-sm hover:opacity-70 transition-opacity"
+          style={{ color: '#1D1D1F' }}
+        >
+          <Logout size={20} />
+          <span>Logout</span>
         </button>
       </div>
     </div>

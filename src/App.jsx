@@ -7,6 +7,7 @@ import Projects from './pages/Projects'
 import ProjectDetail from './pages/Projectdetail'
 import Reports from './pages/Reports'
 import Profiles from './pages/Profiles'
+import Settings from './pages/Settings'
 import { SpeedInsights } from "@vercel/speed-insights/react"
 
 function App() {
@@ -70,6 +71,10 @@ function App() {
         <Route 
           path="/profiles" 
           element={session ? <Profiles user={session.user} /> : <Navigate to="/login" replace />} 
+        />
+        <Route 
+          path="/settings" 
+          element={session ? <Settings user={session.user} /> : <Navigate to="/login" replace />} 
         />
         {/* Catch all - redirect to home */}
         <Route path="*" element={<Navigate to="/" replace />} />
