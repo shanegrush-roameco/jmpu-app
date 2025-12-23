@@ -1,6 +1,96 @@
-import { createClient } from '@supabase/supabase-js'
+// src/lib/supabase.js
+// Supabase client configuration for JMPU App
+// ============================================================================
 
-const supabaseUrl = 'https://mbwiaojxmaxsmoykdnww.supabase.co'
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1id2lhb2p4bWF4c21veWtkbnd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzNTEyOTgsImV4cCI6MjA3OTkyNzI5OH0.Ieo5FHF06q0TN2t9KiElPPy3iZZopwBUkHXyVt91cYI'
+import { createClient } from '@supabase/supabase-js';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables. Check your .env file.');
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+});
+
+// ============================================================================
+// Auth Helpers
+// ============================================================================
+
+export const getCurrentUser = async () => {
+  const { data: { user }, error } = await supabase.auth.getUser();
+  if (error) throw error;
+  return user;
+};
+
+export const getCurrentSession = async () => {
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  return session;
+};
+
+export const signOut = async () => {
+  const { error } = await supabase.auth.signOut();
+  if (error) throw error;
+};
+
+// ============================================================================
+// Real-time Subscriptions Helper
+// ============================================================================
+
+export const subscribeToTable = (table, callback, filter = null) => {
+  let channel = supabase
+    .channel(`${table}-changes`)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: table,
+        ...(filter && { filter }),
+      },
+      (payload) => {
+        callback(payload);
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+};
+
+// ============================================================================
+// Storage Helpers
+// ============================================================================
+
+export const uploadFile = async (bucket, path, file) => {
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+    });
+  
+  if (error) throw error;
+  return data;
+};
+
+export const getPublicUrl = (bucket, path) => {
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  return data.publicUrl;
+};
+
+export const deleteFile = async (bucket, paths) => {
+  const { data, error } = await supabase.storage.from(bucket).remove(paths);
+  if (error) throw error;
+  return data;
+};
+
+export default supabase;
