@@ -1,6 +1,13 @@
+// src/components/GlobalNav.jsx
+// Sprint 9: Added permission-based navigation visibility
+// Profiles link only shows for users with canViewProfiles permission
+// ============================================================================
+
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import NotificationsPanel, { useNotifications } from './NotificationsPanel'
+import { useCurrentProfile } from '../hooks/useCurrentProfile'
+import { usePermissions } from '../hooks/usePermissions'
 import { 
   Home, 
   Folder, 
@@ -21,11 +28,12 @@ const recentSearches = [
   'Recent Search Query 5',
 ]
 
+// Nav items with optional permission requirement
 const navItems = [
   { id: 'dashboard', label: 'Dashboard', icon: Home },
   { id: 'projects', label: 'Projects', icon: Folder },
-  { id: 'reports', label: 'Reports', icon: Report },
-  { id: 'profiles', label: 'Profiles', icon: UserMultiple },
+  { id: 'reports', label: 'Reports', icon: Report, requirePermission: 'canViewReports' },
+  { id: 'profiles', label: 'Profiles', icon: UserMultiple, requirePermission: 'canViewProfiles' },
 ]
 
 function GlobalNav({ user, activeNav, children }) {
@@ -33,6 +41,10 @@ function GlobalNav({ user, activeNav, children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [menuSearchActive, setMenuSearchActive] = useState(false)
   const notifications = useNotifications()
+  
+  // Get current user's profile and permissions
+  const { profile, loading: profileLoading } = useCurrentProfile()
+  const permissions = usePermissions(profile)
 
   const getInitials = (name) => {
     if (!name) return 'U'
@@ -52,6 +64,25 @@ function GlobalNav({ user, activeNav, children }) {
       settings: '/settings',
     }
     navigate(routes[navId] || '/')
+  }
+
+  // Filter nav items based on permissions
+  const visibleNavItems = navItems.filter(item => {
+    // If no permission required, always show
+    if (!item.requirePermission) return true
+    // If still loading profile, hide permission-gated items
+    if (profileLoading) return false
+    // Check if user has the required permission
+    return permissions[item.requirePermission] === true
+  })
+
+  // Helper to check if a specific nav item should be visible
+  const shouldShowNavItem = (navId) => {
+    const item = navItems.find(i => i.id === navId)
+    if (!item) return true
+    if (!item.requirePermission) return true
+    if (profileLoading) return false
+    return permissions[item.requirePermission] === true
   }
 
   return (
@@ -125,8 +156,9 @@ function GlobalNav({ user, activeNav, children }) {
                   </div>
                 </div>
 
-                {/* Navigation Items */}
+                {/* Navigation Items - Mobile */}
                 <nav className="pt-6 pb-8 flex flex-col gap-6">
+                  {/* Dashboard - always visible */}
                   <button
                     onClick={() => handleNavClick('dashboard')}
                     className="mx-4 h-11 flex items-center gap-4 px-4 py-2 text-left hover:bg-gray-50 transition-colors"
@@ -140,6 +172,8 @@ function GlobalNav({ user, activeNav, children }) {
                       Dashboard
                     </span>
                   </button>
+                  
+                  {/* Projects - always visible */}
                   <button
                     onClick={() => handleNavClick('projects')}
                     className="mx-4 h-11 flex items-center gap-4 px-4 py-2 text-left hover:bg-gray-50 transition-colors"
@@ -153,32 +187,42 @@ function GlobalNav({ user, activeNav, children }) {
                       Projects
                     </span>
                   </button>
-                  <button
-                    onClick={() => handleNavClick('reports')}
-                    className="mx-4 h-11 flex items-center gap-4 px-4 py-2 text-left hover:bg-gray-50 transition-colors"
-                    style={{ color: '#1D1D1F', borderRadius: '8px' }}
-                  >
-                    <Report size={24} className={activeNav === 'reports' ? 'text-gray-900' : 'text-gray-400'} />
-                    <span 
-                      className={`text-base ${activeNav === 'reports' ? 'font-bold' : 'font-normal'}`}
-                      style={{ letterSpacing: '0.16px' }}
+                  
+                  {/* Reports - permission-gated */}
+                  {shouldShowNavItem('reports') && (
+                    <button
+                      onClick={() => handleNavClick('reports')}
+                      className="mx-4 h-11 flex items-center gap-4 px-4 py-2 text-left hover:bg-gray-50 transition-colors"
+                      style={{ color: '#1D1D1F', borderRadius: '8px' }}
                     >
-                      Reports
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => handleNavClick('profiles')}
-                    className="mx-4 h-11 flex items-center gap-4 px-4 py-2 text-left hover:bg-gray-50 transition-colors"
-                    style={{ color: '#1D1D1F', borderRadius: '8px' }}
-                  >
-                    <UserMultiple size={24} className={activeNav === 'profiles' ? 'text-gray-900' : 'text-gray-400'} />
-                    <span 
-                      className={`text-base ${activeNav === 'profiles' ? 'font-bold' : 'font-normal'}`}
-                      style={{ letterSpacing: '0.16px' }}
+                      <Report size={24} className={activeNav === 'reports' ? 'text-gray-900' : 'text-gray-400'} />
+                      <span 
+                        className={`text-base ${activeNav === 'reports' ? 'font-bold' : 'font-normal'}`}
+                        style={{ letterSpacing: '0.16px' }}
+                      >
+                        Reports
+                      </span>
+                    </button>
+                  )}
+                  
+                  {/* Profiles - admin only */}
+                  {shouldShowNavItem('profiles') && (
+                    <button
+                      onClick={() => handleNavClick('profiles')}
+                      className="mx-4 h-11 flex items-center gap-4 px-4 py-2 text-left hover:bg-gray-50 transition-colors"
+                      style={{ color: '#1D1D1F', borderRadius: '8px' }}
                     >
-                      Profiles
-                    </span>
-                  </button>
+                      <UserMultiple size={24} className={activeNav === 'profiles' ? 'text-gray-900' : 'text-gray-400'} />
+                      <span 
+                        className={`text-base ${activeNav === 'profiles' ? 'font-bold' : 'font-normal'}`}
+                        style={{ letterSpacing: '0.16px' }}
+                      >
+                        Profiles
+                      </span>
+                    </button>
+                  )}
+                  
+                  {/* Settings - always visible */}
                   <button
                     onClick={() => handleNavClick('settings')}
                     className="mx-4 h-11 flex items-center gap-4 px-4 py-2 text-left hover:bg-gray-50 transition-colors"
@@ -258,9 +302,9 @@ function GlobalNav({ user, activeNav, children }) {
             borderBottomLeftRadius: '16px'
           }}
         >
-          {/* Navigation */}
+          {/* Navigation - Desktop (uses filtered visibleNavItems) */}
           <nav className="flex-1">
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const IconComponent = item.icon
               return (
                 <button
