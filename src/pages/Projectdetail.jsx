@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import GlobalNav from '../components/GlobalNav'
+import AISummaryModal from '../components/modals/AISummaryModal'
 
 // Mock project data
 const projectData = {
@@ -181,6 +182,7 @@ function ProjectDetail({ user }) {
   const [reportModalOpen, setReportModalOpen] = useState(false)
   const [notesModalOpen, setNotesModalOpen] = useState(false)
   const [addContractorModalOpen, setAddContractorModalOpen] = useState(false)
+  const [aiSummaryModalOpen, setAiSummaryModalOpen] = useState(false)
   const [expandedSections, setExpandedSections] = useState({
     timeline: true,
     customer: true,
@@ -291,11 +293,12 @@ function ProjectDetail({ user }) {
         if (reportModalOpen) setReportModalOpen(false)
         if (notesModalOpen) setNotesModalOpen(false)
         if (addContractorModalOpen) setAddContractorModalOpen(false)
+        if (aiSummaryModalOpen) setAiSummaryModalOpen(false)
       }
     }
     window.addEventListener('keydown', handleEsc)
     return () => window.removeEventListener('keydown', handleEsc)
-  }, [editModalOpen, invoiceModalOpen, paymentModalOpen, reportModalOpen, notesModalOpen, addContractorModalOpen])
+  }, [editModalOpen, invoiceModalOpen, paymentModalOpen, reportModalOpen, notesModalOpen, addContractorModalOpen, aiSummaryModalOpen])
 
   const toggleSection = (section) => {
     setExpandedSections(prev => ({
@@ -422,6 +425,7 @@ function ProjectDetail({ user }) {
                     Edit Project
                   </button>
                   <button 
+                    onClick={() => setAiSummaryModalOpen(true)}
                     className="w-full lg:w-auto px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
                     style={{ color: '#111111', border: '1px solid #111111' }}
                     onMouseEnter={(e) => {
@@ -2949,6 +2953,28 @@ function ProjectDetail({ user }) {
           </div>
         </div>
       )}
+      {/* AI Summary Modal */}
+      <AISummaryModal
+        isOpen={aiSummaryModalOpen}
+        onClose={() => setAiSummaryModalOpen(false)}
+        project={{
+          id: projectData.id,
+          project_number: projectData.id,
+          name: projectData.name,
+          status: projectData.status,
+          phase: projectData.currentPhase,
+          estimated_completion_date: projectData.estimatedCompletion,
+          budget: projectData.financials?.summary?.totalBudget,
+          amount_spent: projectData.financials?.summary?.totalBudget - projectData.financials?.summary?.budgetAvailable,
+          permits: projectData.permits,
+        }}
+        tasks={projectData.tasks.map(t => ({
+          title: t.name,
+          status: t.daysStatusType,
+          due_date: t.dueDate,
+          days_variance: t.daysStatus,
+        }))}
+      />
     </GlobalNav>
   )
 }
