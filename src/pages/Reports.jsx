@@ -1,37 +1,23 @@
+// src/pages/Reports.jsx
+// Sprint 11: Reports page connected to live Supabase data
+// Uses GlobalNav as wrapper (correct pattern from Sprint 5)
+// ============================================================================
+
 import { useState, useEffect } from 'react'
 import GlobalNav from '../components/GlobalNav'
 import DatePicker from '../components/DatePicker'
 import { Warning, ChevronRight } from '@carbon/icons-react'
+import {
+  useFinancialOutlook,
+  useDrawsSummary,
+  useJobs,
+  useActionCenter,
+  useContractors,
+  useProjectsForFilter,
+} from '../hooks/useReports'
+import { generateAndDownloadReport } from '../lib/exportUtils'
 
-// Mock data based on Figma design
-const financialData = {
-  income: 176890,
-  expenses: 36890,
-}
-
-const drawsData = {
-  pending: 6890,
-  total: 24598,
-  completed: 26390,
-}
-
-const jobsData = [
-  { id: 1, title: 'Mark Hazards for Removal', project: 'Project Alpha', status: 'Not Signed Off' },
-  { id: 2, title: 'Schedule Framing Inspection', project: 'Project Alpha', status: 'Not Signed Off' },
-  { id: 3, title: 'Approve Material Purchase Request', project: 'Project Alpha', status: 'Not Signed Off' },
-  { id: 4, title: 'Confirm Dumpster Delivery', project: 'Project Alpha', status: 'Not Signed Off' },
-  { id: 5, title: 'Meet Client for Walkthrough', project: 'Project Alpha', status: 'Not Signed Off' },
-]
-
-const actionCenterData = [
-  { id: 1, title: 'Schedule Framing Inspection', project: 'Project Alpha', status: 'Overdue 2 Days', urgent: true },
-  { id: 2, title: 'Approve Material Purchase Request', project: 'Project Alpha', status: 'Due Today', urgent: true },
-  { id: 3, title: 'Task Name', project: 'Project Alpha', status: 'Due Today', urgent: false },
-]
-
-const contractorOptions = ['Killowen Construction', 'ABC Builders', 'XYZ Contractors']
-const projectOptions = ['Project Alpha', 'Project Bravo', 'Project Charlie', 'Project Delta']
-
+// Quarter options for report generation
 const quarterOptions = [
   'This Quarter (Q2 2025)',
   'Last Quarter (Q1 2025)',
@@ -43,14 +29,29 @@ const quarterOptions = [
 function Reports({ user }) {
   const [generateModalOpen, setGenerateModalOpen] = useState(false)
   const [completedJobs, setCompletedJobs] = useState(new Set())
-  const [selectedContractor, setSelectedContractor] = useState('Killowen Construction')
-  const [selectedProject, setSelectedProject] = useState('Project Alpha')
+  const [selectedContractorId, setSelectedContractorId] = useState(null)
+  const [selectedProjectId, setSelectedProjectId] = useState(null)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generateError, setGenerateError] = useState(null)
   
-  // Date range state
-  const [financialStartDate, setFinancialStartDate] = useState('2025-04-01')
-  const [financialEndDate, setFinancialEndDate] = useState('2025-07-01')
-  const [drawsStartDate, setDrawsStartDate] = useState('2025-04-01')
-  const [drawsEndDate, setDrawsEndDate] = useState('2025-07-01')
+  // Date range state - default to current quarter
+  const now = new Date()
+  const currentQuarter = Math.floor(now.getMonth() / 3)
+  const quarterStart = new Date(now.getFullYear(), currentQuarter * 3, 1)
+  const quarterEnd = new Date(now.getFullYear(), (currentQuarter + 1) * 3, 0)
+  
+  const [financialStartDate, setFinancialStartDate] = useState(
+    quarterStart.toISOString().split('T')[0]
+  )
+  const [financialEndDate, setFinancialEndDate] = useState(
+    quarterEnd.toISOString().split('T')[0]
+  )
+  const [drawsStartDate, setDrawsStartDate] = useState(
+    quarterStart.toISOString().split('T')[0]
+  )
+  const [drawsEndDate, setDrawsEndDate] = useState(
+    quarterEnd.toISOString().split('T')[0]
+  )
   
   // Generate Report modal state
   const [reportConfig, setReportConfig] = useState({
@@ -64,7 +65,53 @@ function Reports({ user }) {
     formatGoogleDoc: false,
   })
 
-  // Close modal on ESC key
+  // =========================================================================
+  // Data Hooks - Connected to Supabase
+  // =========================================================================
+
+  const {
+    data: financialData,
+    loading: financialLoading,
+    error: financialError,
+  } = useFinancialOutlook({
+    startDate: financialStartDate,
+    endDate: financialEndDate,
+  })
+
+  const {
+    data: drawsData,
+    loading: drawsLoading,
+    error: drawsError,
+  } = useDrawsSummary({
+    startDate: drawsStartDate,
+    endDate: drawsEndDate,
+  })
+
+  const {
+    jobs: jobsData,
+    loading: jobsLoading,
+    error: jobsError,
+  } = useJobs({
+    contractorId: selectedContractorId,
+    limit: 10,
+  })
+
+  const {
+    items: actionCenterData,
+    loading: actionCenterLoading,
+    error: actionCenterError,
+  } = useActionCenter({
+    projectId: selectedProjectId,
+    limit: 10,
+  })
+
+  const { contractors, loading: contractorsLoading } = useContractors()
+  const { projects: projectsFilter, loading: projectsLoading } = useProjectsForFilter()
+
+  // =========================================================================
+  // Event Handlers
+  // =========================================================================
+
   useEffect(() => {
     const handleEsc = (e) => {
       if (e.key === 'Escape' && generateModalOpen) {
@@ -94,6 +141,35 @@ function Reports({ user }) {
     }))
   }
 
+  const handleContractorChange = (e) => {
+    const value = e.target.value
+    setSelectedContractorId(value === 'all' ? null : value)
+  }
+
+  const handleProjectChange = (e) => {
+    const value = e.target.value
+    setSelectedProjectId(value === 'all' ? null : value)
+  }
+
+  const handleGenerateReport = async () => {
+    setIsGenerating(true)
+    setGenerateError(null)
+
+    try {
+      await generateAndDownloadReport(reportConfig)
+      setGenerateModalOpen(false)
+    } catch (error) {
+      console.error('Error generating report:', error)
+      setGenerateError(error.message || 'Failed to generate report')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  // =========================================================================
+  // Formatters
+  // =========================================================================
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -103,19 +179,22 @@ function Reports({ user }) {
     }).format(amount)
   }
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', { 
-      month: '2-digit', 
-      day: '2-digit', 
-      year: '2-digit' 
-    })
-  }
+  // =========================================================================
+  // Calculated Values
+  // =========================================================================
 
-  // Calculate progress percentages
-  const incomePercent = (financialData.income / (financialData.income + financialData.expenses)) * 100
+  const totalFinancial = (financialData?.income || 0) + (financialData?.expenses || 0)
+  const incomePercent = totalFinancial > 0 
+    ? ((financialData?.income || 0) / totalFinancial) * 100 
+    : 50
   const expensesPercent = 100 - incomePercent
-  const pendingPercent = (drawsData.pending / drawsData.total) * 100
+
+  const drawsTotal = drawsData?.total || 1
+  const pendingPercent = (drawsData?.pending || 0) / drawsTotal * 100
+
+  // =========================================================================
+  // Render
+  // =========================================================================
 
   return (
     <GlobalNav user={user} activeNav="reports">
@@ -125,7 +204,6 @@ function Reports({ user }) {
           Reports
         </h2>
         
-        {/* Generate Report Button */}
         <button 
           onClick={() => setGenerateModalOpen(true)}
           className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
@@ -149,47 +227,52 @@ function Reports({ user }) {
             Financial Outlook
           </h3>
           
-          {/* Values Row - Desktop: side by side, Mobile: stacked */}
-          <div className="flex flex-col lg:flex-row gap-3 lg:gap-0 mb-3">
-            <div 
-              className="flex-1 py-3 px-4 text-center"
-              style={{ 
-                backgroundColor: '#FAFAFA',
-                borderRadius: '8px'
-              }}
-            >
-              <span className="text-xl lg:text-2xl font-semibold" style={{ color: '#22C55E' }}>
-                {formatCurrency(financialData.income)}
-              </span>
-              <span className="text-sm ml-2" style={{ color: '#6B7280' }}>Income</span>
+          {financialLoading ? (
+            <div className="animate-pulse">
+              <div className="flex gap-3 mb-3">
+                <div className="flex-1 h-16 bg-gray-100 rounded-lg"></div>
+                <div className="flex-1 h-16 bg-gray-100 rounded-lg"></div>
+              </div>
+              <div className="h-1.5 bg-gray-100 rounded-full mb-4"></div>
             </div>
-            <div 
-              className="flex-1 py-3 px-4 text-center"
-              style={{ 
-                backgroundColor: '#FAFAFA',
-                borderRadius: '8px'
-              }}
-            >
-              <span className="text-xl lg:text-2xl font-semibold" style={{ color: '#EF4444' }}>
-                {formatCurrency(financialData.expenses)}
-              </span>
-              <span className="text-sm ml-2" style={{ color: '#6B7280' }}>Expenses</span>
-            </div>
-          </div>
+          ) : financialError ? (
+            <div className="text-red-500 text-sm py-4">{financialError}</div>
+          ) : (
+            <>
+              <div className="flex flex-col lg:flex-row gap-3 lg:gap-0 mb-3">
+                <div 
+                  className="flex-1 py-3 px-4 text-center"
+                  style={{ backgroundColor: '#FAFAFA', borderRadius: '8px' }}
+                >
+                  <span className="text-xl lg:text-2xl font-semibold" style={{ color: '#22C55E' }}>
+                    {formatCurrency(financialData?.income || 0)}
+                  </span>
+                  <span className="text-sm ml-2" style={{ color: '#6B7280' }}>Income</span>
+                </div>
+                <div 
+                  className="flex-1 py-3 px-4 text-center"
+                  style={{ backgroundColor: '#FAFAFA', borderRadius: '8px' }}
+                >
+                  <span className="text-xl lg:text-2xl font-semibold" style={{ color: '#EF4444' }}>
+                    {formatCurrency(financialData?.expenses || 0)}
+                  </span>
+                  <span className="text-sm ml-2" style={{ color: '#6B7280' }}>Expenses</span>
+                </div>
+              </div>
 
-          {/* Progress Bar */}
-          <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden flex mb-4">
-            <div 
-              className="h-full"
-              style={{ width: `${incomePercent}%`, backgroundColor: '#22C55E' }}
-            />
-            <div 
-              className="h-full"
-              style={{ width: `${expensesPercent}%`, backgroundColor: '#EF4444' }}
-            />
-          </div>
+              <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden flex mb-4">
+                <div 
+                  className="h-full transition-all duration-500"
+                  style={{ width: `${incomePercent}%`, backgroundColor: '#22C55E' }}
+                />
+                <div 
+                  className="h-full transition-all duration-500"
+                  style={{ width: `${expensesPercent}%`, backgroundColor: '#EF4444' }}
+                />
+              </div>
+            </>
+          )}
 
-          {/* Date Inputs */}
           <div className="grid grid-cols-2 gap-3 mb-4">
             <DatePicker
               label="Start Date"
@@ -203,16 +286,11 @@ function Reports({ user }) {
             />
           </div>
 
-          {/* View Report Button */}
           <button 
             className="w-full py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors"
             style={{ color: '#111111', border: '1px solid #E5E7EB' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#F9FAFB'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent'
-            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F9FAFB'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             View Report
           </button>
@@ -230,71 +308,72 @@ function Reports({ user }) {
             Draws Summary
           </h3>
           
-          {/* Values - Desktop: side by side, Mobile: stacked */}
-          <div className="flex flex-col lg:flex-row gap-3 lg:gap-0 mb-3">
-            <div 
-              className="flex-1 py-3 px-4 text-center"
-              style={{ 
-                backgroundColor: '#FAFAFA',
-                borderRadius: '8px'
-              }}
-            >
-              {/* Desktop shows combined, mobile shows separate */}
-              <div className="hidden lg:block">
-                <span className="text-xl lg:text-2xl font-semibold" style={{ color: '#EF4444' }}>
-                  {formatCurrency(drawsData.pending)}
-                </span>
-                <span className="text-xl lg:text-2xl font-semibold mx-1" style={{ color: '#6B7280' }}>/</span>
-                <span className="text-xl lg:text-2xl font-semibold" style={{ color: '#6B7280' }}>
-                  {formatCurrency(drawsData.total)}
-                </span>
-                <span className="text-sm ml-2" style={{ color: '#6B7280' }}>Total</span>
+          {drawsLoading ? (
+            <div className="animate-pulse">
+              <div className="flex gap-3 mb-3">
+                <div className="flex-1 h-16 bg-gray-100 rounded-lg"></div>
+                <div className="flex-1 h-16 bg-gray-100 rounded-lg"></div>
               </div>
-              {/* Mobile - show pending separate */}
-              <div className="lg:hidden">
-                <span className="text-xl font-semibold" style={{ color: '#EF4444' }}>
-                  {formatCurrency(drawsData.pending)}
-                </span>
-                <span className="text-sm ml-2" style={{ color: '#6B7280' }}>Pending</span>
-              </div>
+              <div className="h-1.5 bg-gray-100 rounded-full mb-4"></div>
             </div>
-            <div 
-              className="flex-1 py-3 px-4 text-center"
-              style={{ 
-                backgroundColor: '#FAFAFA',
-                borderRadius: '8px'
-              }}
-            >
-              {/* Desktop shows completed */}
-              <div className="hidden lg:block">
-                <span className="text-xl lg:text-2xl font-semibold" style={{ color: '#22C55E' }}>
-                  {formatCurrency(drawsData.completed)}
-                </span>
-                <span className="text-sm ml-2" style={{ color: '#6B7280' }}>Completed</span>
+          ) : drawsError ? (
+            <div className="text-red-500 text-sm py-4">{drawsError}</div>
+          ) : (
+            <>
+              <div className="flex flex-col lg:flex-row gap-3 lg:gap-0 mb-3">
+                <div 
+                  className="flex-1 py-3 px-4 text-center"
+                  style={{ backgroundColor: '#FAFAFA', borderRadius: '8px' }}
+                >
+                  <div className="hidden lg:block">
+                    <span className="text-xl lg:text-2xl font-semibold" style={{ color: '#EF4444' }}>
+                      {formatCurrency(drawsData?.pending || 0)}
+                    </span>
+                    <span className="text-xl lg:text-2xl font-semibold mx-1" style={{ color: '#6B7280' }}>/</span>
+                    <span className="text-xl lg:text-2xl font-semibold" style={{ color: '#6B7280' }}>
+                      {formatCurrency(drawsData?.total || 0)}
+                    </span>
+                    <span className="text-sm ml-2" style={{ color: '#6B7280' }}>Total</span>
+                  </div>
+                  <div className="lg:hidden">
+                    <span className="text-xl font-semibold" style={{ color: '#EF4444' }}>
+                      {formatCurrency(drawsData?.pending || 0)}
+                    </span>
+                    <span className="text-sm ml-2" style={{ color: '#6B7280' }}>Pending</span>
+                  </div>
+                </div>
+                <div 
+                  className="flex-1 py-3 px-4 text-center"
+                  style={{ backgroundColor: '#FAFAFA', borderRadius: '8px' }}
+                >
+                  <div className="hidden lg:block">
+                    <span className="text-xl lg:text-2xl font-semibold" style={{ color: '#22C55E' }}>
+                      {formatCurrency(drawsData?.completed || 0)}
+                    </span>
+                    <span className="text-sm ml-2" style={{ color: '#6B7280' }}>Completed</span>
+                  </div>
+                  <div className="lg:hidden">
+                    <span className="text-xl font-semibold" style={{ color: '#6B7280' }}>
+                      {formatCurrency(drawsData?.total || 0)}
+                    </span>
+                    <span className="text-sm ml-2" style={{ color: '#6B7280' }}>Total</span>
+                  </div>
+                </div>
               </div>
-              {/* Mobile shows total */}
-              <div className="lg:hidden">
-                <span className="text-xl font-semibold" style={{ color: '#6B7280' }}>
-                  {formatCurrency(drawsData.total)}
-                </span>
-                <span className="text-sm ml-2" style={{ color: '#6B7280' }}>Total</span>
+
+              <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden flex mb-4">
+                <div 
+                  className="h-full transition-all duration-500"
+                  style={{ width: `${pendingPercent}%`, backgroundColor: '#EF4444' }}
+                />
+                <div 
+                  className="h-full transition-all duration-500"
+                  style={{ width: `${100 - pendingPercent}%`, backgroundColor: '#22C55E' }}
+                />
               </div>
-            </div>
-          </div>
+            </>
+          )}
 
-          {/* Progress Bar */}
-          <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden flex mb-4">
-            <div 
-              className="h-full"
-              style={{ width: `${pendingPercent}%`, backgroundColor: '#EF4444' }}
-            />
-            <div 
-              className="h-full"
-              style={{ width: `${100 - pendingPercent}%`, backgroundColor: '#22C55E' }}
-            />
-          </div>
-
-          {/* Date Inputs */}
           <div className="grid grid-cols-2 gap-3 mb-4">
             <DatePicker
               label="Start Date"
@@ -308,16 +387,11 @@ function Reports({ user }) {
             />
           </div>
 
-          {/* View Report Button */}
           <button 
             className="w-full py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors"
             style={{ color: '#111111', border: '1px solid #E5E7EB' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#F9FAFB'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent'
-            }}
+            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F9FAFB'}
+            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
             View Report
           </button>
@@ -337,59 +411,81 @@ function Reports({ user }) {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-semibold" style={{ color: '#1D1D1F' }}>Jobs</h3>
             
-            {/* Contractor Dropdown */}
             <div className="relative">
               <select
-                value={selectedContractor}
-                onChange={(e) => setSelectedContractor(e.target.value)}
-                className="appearance-none bg-white border border-gray-200 rounded-lg px-3 py-1.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                value={selectedContractorId || 'all'}
+                onChange={handleContractorChange}
+                disabled={contractorsLoading}
+                className="appearance-none bg-white border border-gray-200 rounded-lg px-3 py-1.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:opacity-50"
                 style={{ color: '#374151' }}
               >
-                {contractorOptions.map(contractor => (
-                  <option key={contractor} value={contractor}>{contractor}</option>
+                <option value="all">All Contractors</option>
+                {contractors.map(contractor => (
+                  <option key={contractor.id} value={contractor.id}>
+                    {contractor.name}
+                  </option>
                 ))}
               </select>
               <ChevronDownIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             </div>
           </div>
 
-          {/* Jobs List */}
-          <div className="space-y-1">
-            {jobsData.map((job) => (
-              <div 
-                key={job.id} 
-                className="flex items-center gap-3 py-3 border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors"
-              >
-                {/* Checkbox - Desktop only */}
-                <button
-                  onClick={() => toggleJob(job.id)}
-                  className={`hidden lg:flex w-5 h-5 rounded-full border-2 items-center justify-center flex-shrink-0 transition-colors ${
-                    completedJobs.has(job.id)
-                      ? 'bg-gray-900 border-gray-900'
-                      : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                >
-                  {completedJobs.has(job.id) && (
-                    <CheckIcon className="w-3 h-3 text-white" />
-                  )}
-                </button>
-                
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${completedJobs.has(job.id) ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-                    {job.title}
-                  </p>
-                  <p className="text-xs">
-                    <span style={{ color: '#6B7280' }}>{job.project}</span>
-                    <span style={{ color: '#6B7280' }}> • </span>
-                    <span style={{ color: '#EF4444' }}>{job.status}</span>
-                  </p>
+          {jobsLoading ? (
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="animate-pulse flex items-center gap-3 py-3">
+                  <div className="w-5 h-5 bg-gray-100 rounded-full"></div>
+                  <div className="flex-1">
+                    <div className="h-4 bg-gray-100 rounded w-3/4 mb-1"></div>
+                    <div className="h-3 bg-gray-100 rounded w-1/2"></div>
+                  </div>
                 </div>
+              ))}
+            </div>
+          ) : jobsError ? (
+            <div className="text-red-500 text-sm py-4">{jobsError}</div>
+          ) : jobsData.length === 0 ? (
+            <div className="text-gray-500 text-sm py-8 text-center">
+              No jobs requiring attention
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {jobsData.map((job) => (
+                <div 
+                  key={job.id} 
+                  className="flex items-center gap-3 py-3 border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50 -mx-2 px-2 rounded-lg transition-colors"
+                >
+                  <button
+                    onClick={() => toggleJob(job.id)}
+                    className={`hidden lg:flex w-5 h-5 rounded-full border-2 items-center justify-center flex-shrink-0 transition-colors ${
+                      completedJobs.has(job.id)
+                        ? 'bg-gray-900 border-gray-900'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    {completedJobs.has(job.id) && (
+                      <CheckIcon className="w-3 h-3 text-white" />
+                    )}
+                  </button>
+                  
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${completedJobs.has(job.id) ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                      {job.title}
+                    </p>
+                    <p className="text-xs">
+                      <span style={{ color: '#6B7280' }}>{job.project}</span>
+                      <span style={{ color: '#6B7280' }}> • </span>
+                      <span style={{ color: job.status === 'Signed Off' ? '#22C55E' : '#EF4444' }}>
+                        {job.status}
+                      </span>
+                    </p>
+                  </div>
 
-                {/* Chevron - Mobile only */}
-                <ChevronRight size={16} className="lg:hidden text-gray-400 flex-shrink-0" />
-              </div>
-            ))}
-          </div>
+                  <ChevronRight size={16} className="lg:hidden text-gray-400 flex-shrink-0" />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Action Center Card */}
@@ -403,60 +499,82 @@ function Reports({ user }) {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-base font-semibold" style={{ color: '#1D1D1F' }}>Action Center</h3>
             
-            {/* Project Dropdown */}
             <div className="relative">
               <select
-                value={selectedProject}
-                onChange={(e) => setSelectedProject(e.target.value)}
-                className="appearance-none bg-white border border-gray-200 rounded-lg px-3 py-1.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                value={selectedProjectId || 'all'}
+                onChange={handleProjectChange}
+                disabled={projectsLoading}
+                className="appearance-none bg-white border border-gray-200 rounded-lg px-3 py-1.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:opacity-50"
                 style={{ color: '#374151' }}
               >
-                {projectOptions.map(project => (
-                  <option key={project} value={project}>{project}</option>
+                <option value="all">All Projects</option>
+                {projectsFilter.map(project => (
+                  <option key={project.id} value={project.id}>
+                    {project.name}
+                  </option>
                 ))}
               </select>
               <ChevronDownIcon className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
             </div>
           </div>
 
-          {/* Action Items List */}
-          <div className="space-y-1">
-            {actionCenterData.map((item) => (
-              <div 
-                key={item.id} 
-                className="flex items-start gap-3 py-3 border-b border-gray-50 last:border-0"
-              >
-                {/* Warning Icon */}
-                <Warning 
-                  size={20} 
-                  className="flex-shrink-0 mt-0.5"
-                  style={{ color: '#F59E0B' }}
-                />
-                
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium" style={{ color: '#EF4444' }}>
-                    {item.title}
-                  </p>
-                  <p className="text-xs" style={{ color: '#6B7280' }}>
-                    {item.project} • {item.status}
-                  </p>
+          {actionCenterLoading ? (
+            <div className="space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="animate-pulse flex items-start gap-3 py-3">
+                  <div className="w-5 h-5 bg-gray-100 rounded"></div>
+                  <div className="flex-1">
+                    <div className="h-4 bg-gray-100 rounded w-3/4 mb-1"></div>
+                    <div className="h-3 bg-gray-100 rounded w-1/2"></div>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : actionCenterError ? (
+            <div className="text-red-500 text-sm py-4">{actionCenterError}</div>
+          ) : actionCenterData.length === 0 ? (
+            <div className="text-gray-500 text-sm py-8 text-center">
+              No urgent items requiring attention
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {actionCenterData.map((item) => (
+                <div 
+                  key={item.id} 
+                  className="flex items-start gap-3 py-3 border-b border-gray-50 last:border-0"
+                >
+                  <Warning 
+                    size={20} 
+                    className="flex-shrink-0 mt-0.5"
+                    style={{ color: item.urgent ? '#EF4444' : '#F59E0B' }}
+                  />
+                  
+                  <div className="flex-1 min-w-0">
+                    <p 
+                      className="text-sm font-medium" 
+                      style={{ color: item.urgent ? '#EF4444' : '#1D1D1F' }}
+                    >
+                      {item.title}
+                    </p>
+                    <p className="text-xs" style={{ color: '#6B7280' }}>
+                      {item.project} • {item.status}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Generate Report Modal */}
       {generateModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* Backdrop */}
           <div 
             className="absolute inset-0 bg-black/50"
             onClick={() => setGenerateModalOpen(false)}
           />
           
-          {/* Modal */}
           <div 
             className="relative bg-white w-full max-w-md p-6"
             style={{
@@ -464,7 +582,6 @@ function Reports({ user }) {
               boxShadow: '0 4px 24px rgba(0, 0, 0, 0.12)'
             }}
           >
-            {/* Close Button */}
             <button 
               onClick={() => setGenerateModalOpen(false)}
               className="absolute top-4 right-4 p-1 hover:bg-gray-100 rounded-lg transition-colors"
@@ -472,17 +589,14 @@ function Reports({ user }) {
               <CloseIcon className="w-5 h-5 text-gray-500" />
             </button>
 
-            {/* Title */}
             <h3 className="text-lg font-semibold mb-4" style={{ color: '#1D1D1F' }}>
               Generate Report
             </h3>
 
-            {/* Include The Following */}
             <p className="text-sm font-medium mb-3" style={{ color: '#1D1D1F' }}>
               Include The Following:
             </p>
 
-            {/* Select Range */}
             <div className="mb-4">
               <label className="block text-xs text-gray-500 mb-1">Select Range</label>
               <div className="relative">
@@ -500,7 +614,6 @@ function Reports({ user }) {
               </div>
             </div>
 
-            {/* Checkboxes - Report Sections */}
             <div className="space-y-3 mb-4">
               <label className="flex items-center gap-3 cursor-pointer">
                 <input
@@ -522,7 +635,6 @@ function Reports({ user }) {
               </label>
             </div>
 
-            {/* Contractors Section */}
             <p className="text-sm font-medium mb-3" style={{ color: '#1D1D1F' }}>
               Contractors:
             </p>
@@ -547,7 +659,6 @@ function Reports({ user }) {
               </label>
             </div>
 
-            {/* Format Section */}
             <p className="text-sm font-medium mb-3" style={{ color: '#1D1D1F' }}>
               Format:
             </p>
@@ -581,15 +692,23 @@ function Reports({ user }) {
               </label>
             </div>
 
-            {/* Action Buttons */}
+            {generateError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-600">{generateError}</p>
+              </div>
+            )}
+
             <div className="flex flex-col-reverse lg:flex-row gap-3">
               <button 
                 onClick={() => setGenerateModalOpen(false)}
-                className="flex-1 px-6 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors"
+                disabled={isGenerating}
+                className="flex-1 px-6 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                 style={{ color: '#111111', border: '1px solid #111111' }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#111111'
-                  e.currentTarget.style.color = '#FFFFFF'
+                  if (!isGenerating) {
+                    e.currentTarget.style.backgroundColor = '#111111'
+                    e.currentTarget.style.color = '#FFFFFF'
+                  }
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'transparent'
@@ -599,14 +718,12 @@ function Reports({ user }) {
                 Cancel
               </button>
               <button 
-                onClick={() => {
-                  console.log('Downloading report with config:', reportConfig)
-                  setGenerateModalOpen(false)
-                }}
-                className="flex-1 px-6 py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-colors"
+                onClick={handleGenerateReport}
+                disabled={isGenerating || (!reportConfig.formatPdf && !reportConfig.formatExcel && !reportConfig.formatGoogleDoc)}
+                className="flex-1 px-6 py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{ backgroundColor: '#1D1D1F' }}
               >
-                Download
+                {isGenerating ? 'Generating...' : 'Download'}
               </button>
             </div>
           </div>
@@ -616,7 +733,7 @@ function Reports({ user }) {
   )
 }
 
-// Page-specific Icon Components
+// Icon Components
 function ChevronDownIcon({ className }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

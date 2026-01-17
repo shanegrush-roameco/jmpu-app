@@ -1,6 +1,7 @@
 // src/components/modals/AISummaryModal.jsx
 // Modal for generating and displaying AI-powered project summaries
 // Sprint 10: AI Integration
+// Sprint 10.1: Footer layout cleanup - CTAs fill row, subtle AI badge
 // ============================================================================
 
 import { useState, useEffect } from 'react';
@@ -16,6 +17,20 @@ import {
   Renew
 } from '@carbon/icons-react';
 import { useAISummary } from '../../hooks/useAISummary';
+
+// ============================================================================
+// Configuration - Set your AI provider here
+// ============================================================================
+
+// Options: 'claude', 'openai', 'anthropic', or null to hide badge
+const AI_PROVIDER = 'claude';
+
+const providerLabels = {
+  claude: 'Claude',
+  anthropic: 'Claude',
+  openai: 'OpenAI',
+  gpt: 'OpenAI',
+};
 
 // ============================================================================
 // Markdown Renderer (simple)
@@ -132,6 +147,31 @@ function SimpleMarkdown({ content }) {
 }
 
 // ============================================================================
+// AI Provider Badge (subtle)
+// ============================================================================
+
+function AIProviderBadge({ provider }) {
+  const label = providerLabels[provider?.toLowerCase()] || provider;
+  
+  if (!provider || !label) return null;
+  
+  return (
+    <div className="flex items-center justify-center gap-1.5 text-xs text-gray-400 mb-4">
+      <svg 
+        className="w-3 h-3" 
+        viewBox="0 0 24 24" 
+        fill="none" 
+        stroke="currentColor" 
+        strokeWidth="2"
+      >
+        <path d="M13 10V3L4 14h7v7l9-11h-7z" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+      <span>Powered by {label}</span>
+    </div>
+  );
+}
+
+// ============================================================================
 // Main Component
 // ============================================================================
 
@@ -140,6 +180,7 @@ export default function AISummaryModal({
   onClose, 
   project,
   tasks = [],
+  aiProvider = AI_PROVIDER, // Can override per-instance if needed
 }) {
   const { generateSummary, clearSummary, copyToClipboard, isGenerating, summary, error } = useAISummary();
   
@@ -185,7 +226,7 @@ export default function AISummaryModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/50"
@@ -280,6 +321,9 @@ export default function AISummaryModal({
                   <p className="text-sm text-red-700">{error}</p>
                 </div>
               )}
+              
+              {/* AI Provider Badge - shown before generation */}
+              <AIProviderBadge provider={aiProvider} />
             </>
           )}
 
@@ -313,55 +357,55 @@ export default function AISummaryModal({
               <div className="bg-gray-50 rounded-xl p-5 border border-gray-100">
                 <SimpleMarkdown content={summary.text} />
               </div>
+              
+              {/* AI Provider Badge - shown after generation */}
+              <div className="mt-4">
+                <AIProviderBadge provider={aiProvider} />
+              </div>
             </div>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50">
-          <div className="text-xs text-gray-400">
-            Powered by Claude AI
-          </div>
-          <div className="flex items-center gap-3">
-            {summary ? (
-              <>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
-                >
-                  Close
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCopy}
-                  className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-[#1D1D1F] hover:bg-[#1D1D1F]/90 rounded-xl transition-colors"
-                >
-                  {copied ? <Checkmark size={16} /> : <Copy size={16} />}
-                  {copied ? 'Copied!' : 'Copy to Clipboard'}
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleGenerate}
-                  disabled={isGenerating}
-                  className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <Analytics size={16} />
-                  Generate Summary
-                </button>
-              </>
-            )}
-          </div>
+        {/* Footer - Clean CTA layout */}
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50">
+          {summary ? (
+            <>
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-5 py-2.5 text-sm font-medium text-[#1D1D1F] bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors text-center"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-[#1D1D1F] hover:bg-[#1D1D1F]/90 rounded-xl transition-colors"
+              >
+                {copied ? <Checkmark size={16} /> : <Copy size={16} />}
+                {copied ? 'Copied!' : 'Copy to Clipboard'}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-5 py-2.5 text-sm font-medium text-[#1D1D1F] bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors text-center"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={isGenerating}
+                className="flex-1 flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-violet-500 to-purple-600 hover:from-violet-600 hover:to-purple-700 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Analytics size={16} />
+                Generate Summary
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
