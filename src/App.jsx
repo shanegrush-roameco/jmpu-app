@@ -1,11 +1,12 @@
 // src/App.jsx
-// Sprint 9: Added RoleGuard for permission-based route protection
+// Sprint 12: Added Onboarding for new users
 // ============================================================================
 
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import Login from './pages/Login'
+import Onboarding from './pages/Onboarding'
 import Dashboard from './pages/Dashboard'
 import Projects from './pages/Projects'
 import ProjectDetail from './pages/Projectdetail'
@@ -18,11 +19,41 @@ import { SpeedInsights } from "@vercel/speed-insights/react"
 function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [profile, setProfile] = useState(null)
+  const [profileLoading, setProfileLoading] = useState(false)
+
+  // Fetch user profile
+  const fetchProfile = async (userId) => {
+    setProfileLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name')
+        .eq('id', userId)
+        .single()
+
+      if (error) {
+        // Profile might not exist yet (edge case)
+        console.error('Error fetching profile:', error)
+        setProfile(null)
+      } else {
+        setProfile(data)
+      }
+    } catch (err) {
+      console.error('Error fetching profile:', err)
+      setProfile(null)
+    } finally {
+      setProfileLoading(false)
+    }
+  }
 
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session)
+      if (session?.user) {
+        fetchProfile(session.user.id)
+      }
       setLoading(false)
     })
 
@@ -31,12 +62,27 @@ function App() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session)
+      if (session?.user) {
+        fetchProfile(session.user.id)
+      } else {
+        setProfile(null)
+      }
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
-  if (loading) {
+  // Check if profile is incomplete (missing first_name)
+  const needsOnboarding = session && profile && !profile.first_name
+
+  // Callback for when onboarding completes
+  const handleOnboardingComplete = () => {
+    if (session?.user) {
+      fetchProfile(session.user.id)
+    }
+  }
+
+  if (loading || profileLoading) {
     return (
       <div 
         className="min-h-screen flex items-center justify-center"
@@ -59,33 +105,73 @@ function App() {
           element={session ? <Navigate to="/" replace /> : <Login />} 
         />
         
-        {/* Protected routes - require authentication */}
+        {/* Onboarding route - for new users with incomplete profiles */}
+        <Route 
+          path="/onboarding" 
+          element={
+            !session ? (
+              <Navigate to="/login" replace />
+            ) : needsOnboarding ? (
+              <Onboarding user={session.user} onComplete={handleOnboardingComplete} />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          } 
+        />
+        
+        {/* Protected routes - require authentication AND completed profile */}
         <Route 
           path="/" 
-          element={session ? <Dashboard user={session.user} /> : <Navigate to="/login" replace />} 
+          element={
+            !session ? (
+              <Navigate to="/login" replace />
+            ) : needsOnboarding ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <Dashboard user={session.user} />
+            )
+          } 
         />
         <Route 
           path="/projects" 
-          element={session ? <Projects user={session.user} /> : <Navigate to="/login" replace />} 
+          element={
+            !session ? (
+              <Navigate to="/login" replace />
+            ) : needsOnboarding ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <Projects user={session.user} />
+            )
+          } 
         />
         <Route 
           path="/projects/:projectId" 
-          element={session ? <ProjectDetail user={session.user} /> : <Navigate to="/login" replace />} 
+          element={
+            !session ? (
+              <Navigate to="/login" replace />
+            ) : needsOnboarding ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <ProjectDetail user={session.user} />
+            )
+          } 
         />
         
         {/* Reports - requires canViewReports permission */}
         <Route 
           path="/reports" 
           element={
-            session ? (
+            !session ? (
+              <Navigate to="/login" replace />
+            ) : needsOnboarding ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
               <RoleGuard 
                 require="canViewReports"
                 unauthorized={<AccessDenied message="You don't have permission to view reports." />}
               >
                 <Reports user={session.user} />
               </RoleGuard>
-            ) : (
-              <Navigate to="/login" replace />
             )
           } 
         />
@@ -94,15 +180,17 @@ function App() {
         <Route 
           path="/profiles" 
           element={
-            session ? (
+            !session ? (
+              <Navigate to="/login" replace />
+            ) : needsOnboarding ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
               <RoleGuard 
                 require="canViewProfiles"
                 unauthorized={<AccessDenied message="Only administrators can access the Profiles page." />}
               >
                 <Profiles user={session.user} />
               </RoleGuard>
-            ) : (
-              <Navigate to="/login" replace />
             )
           } 
         />
@@ -110,7 +198,15 @@ function App() {
         {/* Settings - accessible to all authenticated users */}
         <Route 
           path="/settings" 
-          element={session ? <Settings user={session.user} /> : <Navigate to="/login" replace />} 
+          element={
+            !session ? (
+              <Navigate to="/login" replace />
+            ) : needsOnboarding ? (
+              <Navigate to="/onboarding" replace />
+            ) : (
+              <Settings user={session.user} />
+            )
+          } 
         />
         
         {/* Catch all - redirect to home */}

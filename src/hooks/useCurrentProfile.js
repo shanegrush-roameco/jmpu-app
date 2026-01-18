@@ -1,6 +1,6 @@
 // src/hooks/useCurrentProfile.js
-// Sprint 9: Fetches the current authenticated user's profile from Supabase
-// Returns profile data including role for permission checks
+// Sprint 9 + Sprint 12: Fetches the current authenticated user's profile from Supabase
+// Returns profile data including role for permission checks and company for Settings
 // ============================================================================
 
 import { useState, useEffect } from 'react'
@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase'
  * Hook to fetch and manage the current user's profile
  * 
  * @returns {Object} { profile, loading, error, refetch }
- * - profile: The user's profile data including role, or null if not found
+ * - profile: The user's profile data including role and company, or null if not found
  * - loading: Boolean indicating if the profile is being fetched
  * - error: Error message if fetch failed, or null
  * - refetch: Function to manually refetch the profile
@@ -39,10 +39,13 @@ export function useCurrentProfile() {
         return
       }
 
-      // Fetch the profile from the profiles table
+      // Fetch the profile from the profiles table with company relation
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('*')
+        .select(`
+          *,
+          company:company_id(*)
+        `)
         .eq('id', user.id)
         .single()
 

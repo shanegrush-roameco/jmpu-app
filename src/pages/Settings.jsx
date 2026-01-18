@@ -1,7 +1,13 @@
 import { useState, useEffect } from 'react'
 import GlobalNav from '../components/GlobalNav'
+import { useCurrentProfile } from '../hooks/useCurrentProfile'
+import { 
+  updateCurrentProfile, 
+  updateNotificationPreferences,
+  updateAvatar 
+} from '../hooks/useProfiles'
 
-// Tab configuration (same as Profiles detail)
+// Tab configuration
 const settingsTabs = [
   { id: 'account', label: 'Account Settings' },
   { id: 'company', label: 'Company Settings' },
@@ -25,70 +31,224 @@ const jobTitleOptions = [
 
 // Time zone options
 const timeZoneOptions = [
-  'Pacific Time PST',
-  'Mountain Time MST',
-  'Central Time CST',
-  'Eastern Time EST',
+  'America/Los_Angeles',
+  'America/Denver',
+  'America/Chicago',
+  'America/New_York',
 ]
 
-// Team options
-const teamOptions = ['General', 'Admin', 'Field', 'Office']
+const timeZoneLabels = {
+  'America/Los_Angeles': 'Pacific Time (PT)',
+  'America/Denver': 'Mountain Time (MT)',
+  'America/Chicago': 'Central Time (CT)',
+  'America/New_York': 'Eastern Time (ET)',
+}
 
 function Settings({ user }) {
   const [activeTab, setActiveTab] = useState('account')
-  const [saveMessage, setSaveMessage] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState(null)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [hasChanges, setHasChanges] = useState(false)
 
-  // Form state pre-populated with logged-in user's data
-  // In production, this would come from user profile in database
+  // Fetch current user's profile
+  const { profile, loading, error, refetch } = useCurrentProfile()
+
+  // Form state
   const [formData, setFormData] = useState({
     // Account Settings
-    firstName: 'Jake',
-    lastName: 'Vandervennet',
-    phoneNumber: '999-99-9999',
-    email: 'jacobv@junkmonkeypickup.com',
-    jobTitle: 'Owner',
-    timeZone: 'Eastern Time EST',
-    // Permissions (read-only display for user, all enabled for Owner)
-    projectAccess: true,
-    taskAccess: true,
-    financialAccess: true,
-    clientAccess: true,
-    jmpAccess: true,
-    lockboxCodes: true,
-    // Company Settings
-    company: 'Junk Monkey Pickup',
-    companyAddress: '1247 Construction Way',
-    city: 'Denver',
-    state: 'Colorado',
-    zip: '80202',
-    country: 'US',
-    companyEmail: 'info@junkmonkeypickup.com',
-    companyPhone: 'XXX-XX-XXXX',
-    companyWebsite: 'www.junkmonkeypickup.com',
-    einTaxId: 'XX-XXXXXXXX',
-    team: 'Admin',
-    // Notifications
-    projectStatusUpdates: true,
-    tasksAssignments: true,
-    drawSubmissions: true,
-    messages: true,
-    emailFormat: true,
-    textFormat: true,
+    first_name: '',
+    last_name: '',
+    phone: '',
+    email: '',
+    job_title: '',
+    time_zone: 'America/New_York',
+    // Notification Preferences
+    notification_preferences: {
+      project_status_updates: true,
+      task_assignments: true,
+      draw_submissions: false,
+      messages: false,
+      email_enabled: true,
+      sms_enabled: false,
+    },
   })
+
+  // Original form data for comparison (to detect changes)
+  const [originalData, setOriginalData] = useState(null)
+
+  // Populate form when profile loads
+  useEffect(() => {
+    if (profile) {
+      const data = {
+        first_name: profile.first_name || '',
+        last_name: profile.last_name || '',
+        phone: profile.phone || '',
+        email: profile.email || '',
+        job_title: profile.job_title || '',
+        time_zone: profile.time_zone || 'America/New_York',
+        notification_preferences: {
+          project_status_updates: profile.notification_preferences?.project_status_updates ?? true,
+          task_assignments: profile.notification_preferences?.task_assignments ?? true,
+          draw_submissions: profile.notification_preferences?.draw_submissions ?? false,
+          messages: profile.notification_preferences?.messages ?? false,
+          email_enabled: profile.notification_preferences?.email_enabled ?? true,
+          sms_enabled: profile.notification_preferences?.sms_enabled ?? false,
+        },
+      }
+      setFormData(data)
+      setOriginalData(JSON.stringify(data))
+    }
+  }, [profile])
+
+  // Track changes
+  useEffect(() => {
+    if (originalData) {
+      setHasChanges(JSON.stringify(formData) !== originalData)
+    }
+  }, [formData, originalData])
 
   const handleFormChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
-  const handleSave = () => {
-    console.log('Saving settings:', formData)
-    setSaveMessage('Settings saved successfully!')
-    setTimeout(() => setSaveMessage(''), 3000)
+  const handleNotificationChange = (key, value) => {
+    setFormData(prev => ({
+      ...prev,
+      notification_preferences: {
+        ...prev.notification_preferences,
+        [key]: value,
+      },
+    }))
+  }
+
+  const handleSave = async () => {
+    if (!profile) return
+
+    setSaving(true)
+    setSaveError(null)
+    setSaveSuccess(false)
+
+    try {
+      // Update profile fields
+      await updateCurrentProfile({
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        phone: formData.phone,
+        job_title: formData.job_title,
+        time_zone: formData.time_zone,
+      })
+
+      // Update notification preferences
+      await updateNotificationPreferences(profile.id, formData.notification_preferences)
+
+      setSaveSuccess(true)
+      setOriginalData(JSON.stringify(formData))
+      setHasChanges(false)
+      refetch()
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSaveSuccess(false), 3000)
+    } catch (err) {
+      console.error('Error saving settings:', err)
+      setSaveError(err.message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleCancel = () => {
-    // Reset to original values - in production would refetch from DB
-    console.log('Cancelling changes')
+    // Reset to original values
+    if (profile) {
+      const data = {
+        first_name: profile.first_name || '',
+        last_name: profile.last_name || '',
+        phone: profile.phone || '',
+        email: profile.email || '',
+        job_title: profile.job_title || '',
+        time_zone: profile.time_zone || 'America/New_York',
+        notification_preferences: {
+          project_status_updates: profile.notification_preferences?.project_status_updates ?? true,
+          task_assignments: profile.notification_preferences?.task_assignments ?? true,
+          draw_submissions: profile.notification_preferences?.draw_submissions ?? false,
+          messages: profile.notification_preferences?.messages ?? false,
+          email_enabled: profile.notification_preferences?.email_enabled ?? true,
+          sms_enabled: profile.notification_preferences?.sms_enabled ?? false,
+        },
+      }
+      setFormData(data)
+      setHasChanges(false)
+    }
+  }
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file || !profile) return
+
+    try {
+      setSaving(true)
+      setSaveError(null)
+      await updateAvatar(profile.id, file)
+      refetch()
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 3000)
+    } catch (err) {
+      console.error('Error uploading avatar:', err)
+      setSaveError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const getInitials = () => {
+    const first = formData.first_name?.[0] || ''
+    const last = formData.last_name?.[0] || ''
+    return (first + last).toUpperCase() || '?'
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <GlobalNav user={user} activeNav="settings">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+        </div>
+      </GlobalNav>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <GlobalNav user={user} activeNav="settings">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Settings</h2>
+            <p className="text-gray-600">{error}</p>
+            <button
+              onClick={refetch}
+              className="mt-4 px-4 py-2 bg-gray-900 text-white rounded-lg text-sm hover:bg-gray-800"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </GlobalNav>
+    )
+  }
+
+  // No profile state
+  if (!profile) {
+    return (
+      <GlobalNav user={user} activeNav="settings">
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Profile Not Found</h2>
+            <p className="text-gray-600">Your profile hasn't been set up yet. Please contact an administrator.</p>
+          </div>
+        </div>
+      </GlobalNav>
+    )
   }
 
   return (
@@ -154,19 +314,29 @@ function Settings({ user }) {
           {/* Profile Header */}
           <div className="mb-6">
             <h4 className="text-base font-semibold mb-3" style={{ color: '#1D1D1F' }}>
-              {formData.firstName} {formData.lastName}
+              {profile.full_name || `${formData.first_name} ${formData.last_name}`}
             </h4>
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-gray-200 flex items-center justify-center text-sm font-medium overflow-hidden">
-                <img
-                  src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face"
-                  alt={`${formData.firstName} ${formData.lastName}`}
-                  className="w-full h-full object-cover"
-                />
+                {profile.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt={profile.full_name}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  getInitials()
+                )}
               </div>
-              <button className="text-sm underline" style={{ color: '#1D1D1F' }}>
+              <label className="text-sm underline cursor-pointer" style={{ color: '#1D1D1F' }}>
                 Edit Photo
-              </button>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  className="hidden"
+                />
+              </label>
             </div>
           </div>
 
@@ -184,10 +354,47 @@ function Settings({ user }) {
                     <label className="block text-xs text-gray-500 mb-1">First Name</label>
                     <input
                       type="text"
-                      value={formData.firstName}
-                      onChange={(e) => handleFormChange('firstName', e.target.value)}
+                      value={formData.first_name}
+                      onChange={(e) => handleFormChange('first_name', e.target.value)}
                       className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
+                  </div>
+
+                  {/* Last Name */}
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Last Name</label>
+                    <input
+                      type="text"
+                      value={formData.last_name}
+                      onChange={(e) => handleFormChange('last_name', e.target.value)}
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Phone Number */}
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Phone Number</label>
+                    <input
+                      type="tel"
+                      value={formData.phone}
+                      onChange={(e) => handleFormChange('phone', e.target.value)}
+                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Email (read-only) */}
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Email</label>
+                    <div className="relative">
+                      <input
+                        type="email"
+                        value={formData.email}
+                        disabled
+                        className="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm bg-gray-50"
+                      />
+                      <LockIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">Contact an admin to change your email</p>
                   </div>
 
                   {/* Job Title */}
@@ -195,10 +402,11 @@ function Settings({ user }) {
                     <label className="block text-xs text-gray-500 mb-1">Job Title</label>
                     <div className="relative">
                       <select
-                        value={formData.jobTitle}
-                        onChange={(e) => handleFormChange('jobTitle', e.target.value)}
+                        value={formData.job_title}
+                        onChange={(e) => handleFormChange('job_title', e.target.value)}
                         className="w-full appearance-none bg-white border border-gray-200 rounded-lg px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                       >
+                        <option value="">Select job title</option>
                         {jobTitleOptions.map(option => (
                           <option key={option} value={option}>{option}</option>
                         ))}
@@ -207,85 +415,60 @@ function Settings({ user }) {
                     </div>
                   </div>
 
-                  {/* Last Name */}
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Last Name</label>
-                    <input
-                      type="text"
-                      value={formData.lastName}
-                      onChange={(e) => handleFormChange('lastName', e.target.value)}
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
                   {/* Time Zone */}
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Time Zone</label>
                     <div className="relative">
                       <select
-                        value={formData.timeZone}
-                        onChange={(e) => handleFormChange('timeZone', e.target.value)}
+                        value={formData.time_zone}
+                        onChange={(e) => handleFormChange('time_zone', e.target.value)}
                         className="w-full appearance-none bg-white border border-gray-200 rounded-lg px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                       >
                         {timeZoneOptions.map(option => (
-                          <option key={option} value={option}>{option}</option>
+                          <option key={option} value={option}>{timeZoneLabels[option]}</option>
                         ))}
                       </select>
                       <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     </div>
                   </div>
-
-                  {/* Phone Number */}
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Phone Number</label>
-                    <input
-                      type="text"
-                      value={formData.phoneNumber}
-                      onChange={(e) => handleFormChange('phoneNumber', e.target.value)}
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  {/* Spacer for grid alignment on desktop */}
-                  <div className="hidden lg:block"></div>
-
-                  {/* Email */}
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Email</label>
-                    <input
-                      type="email"
-                      value={formData.email}
-                      onChange={(e) => handleFormChange('email', e.target.value)}
-                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
                 </div>
               </div>
 
-              {/* Permissions */}
+              {/* Account Info Card */}
               <div>
                 <h5 className="text-sm font-semibold mb-4" style={{ color: '#1D1D1F' }}>
-                  Permissions
+                  Account Info
                 </h5>
-                <div className="space-y-3">
-                  {[
-                    { key: 'projectAccess', label: 'Project Access' },
-                    { key: 'taskAccess', label: 'Task Access' },
-                    { key: 'financialAccess', label: 'Financial Access' },
-                    { key: 'clientAccess', label: 'Client Access' },
-                    { key: 'jmpAccess', label: 'JMP Access' },
-                    { key: 'lockboxCodes', label: 'Lockbox Codes' },
-                  ].map(permission => (
-                    <label key={permission.key} className="flex items-center gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={formData[permission.key]}
-                        onChange={(e) => handleFormChange(permission.key, e.target.checked)}
-                        className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900 cursor-pointer"
-                      />
-                      <span className="text-sm" style={{ color: '#374151' }}>{permission.label}</span>
-                    </label>
-                  ))}
+                <div className="p-4 border border-gray-200 rounded-lg space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Role</span>
+                    <span className="text-sm font-medium text-gray-900 capitalize">
+                      {profile.role?.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Status</span>
+                    <span className="text-sm font-medium capitalize" style={{ 
+                      color: profile.status === 'active' ? '#22C55E' : 
+                             profile.status === 'suspended' ? '#EF4444' : '#6B7280' 
+                    }}>
+                      {profile.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Last Login</span>
+                    <span className="text-sm text-gray-900">
+                      {profile.last_login_at
+                        ? new Date(profile.last_login_at).toLocaleDateString()
+                        : 'Never'}
+                    </span>
+                  </div>
+                  {profile.company && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Company</span>
+                      <span className="text-sm text-gray-900">{profile.company.name}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -297,164 +480,74 @@ function Settings({ user }) {
               <h5 className="text-sm font-semibold mb-4" style={{ color: '#1D1D1F' }}>
                 Company Information
               </h5>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Company */}
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Company</label>
-                  <input
-                    type="text"
-                    value={formData.company}
-                    onChange={(e) => handleFormChange('company', e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Company Email */}
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Company Email</label>
-                  <input
-                    type="email"
-                    value={formData.companyEmail}
-                    onChange={(e) => handleFormChange('companyEmail', e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Company Address */}
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Company Address</label>
-                  <input
-                    type="text"
-                    value={formData.companyAddress}
-                    onChange={(e) => handleFormChange('companyAddress', e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Company Phone */}
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Company Phone</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={formData.companyPhone}
-                      onChange={(e) => handleFormChange('companyPhone', e.target.value)}
-                      className="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <EyeOffIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 cursor-pointer" />
+              {profile.company ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Company Name</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={profile.company.name || ''}
+                        disabled
+                        className="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm bg-gray-50"
+                      />
+                      <LockIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    </div>
                   </div>
+                  {profile.company.phone && (
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Company Phone</label>
+                      <input
+                        type="text"
+                        value={profile.company.phone}
+                        disabled
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50"
+                      />
+                    </div>
+                  )}
+                  {profile.company.email && (
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Company Email</label>
+                      <input
+                        type="text"
+                        value={profile.company.email}
+                        disabled
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50"
+                      />
+                    </div>
+                  )}
+                  {profile.company.website && (
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Website</label>
+                      <input
+                        type="text"
+                        value={profile.company.website}
+                        disabled
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50"
+                      />
+                    </div>
+                  )}
+                  {profile.company.address && (
+                    <div className="lg:col-span-2">
+                      <label className="block text-xs text-gray-500 mb-1">Address</label>
+                      <input
+                        type="text"
+                        value={profile.company.address}
+                        disabled
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50"
+                      />
+                    </div>
+                  )}
                 </div>
-
-                {/* City */}
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">City</label>
-                  <div className="relative">
-                    <select
-                      value={formData.city}
-                      onChange={(e) => handleFormChange('city', e.target.value)}
-                      className="w-full appearance-none bg-white border border-gray-200 rounded-lg px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                    >
-                      <option value="Denver">Denver</option>
-                      <option value="Boulder">Boulder</option>
-                      <option value="Aurora">Aurora</option>
-                    </select>
-                    <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
+              ) : (
+                <div className="p-6 border border-gray-200 rounded-lg text-center">
+                  <p className="text-sm text-gray-500">You are not assigned to a company.</p>
+                  <p className="text-xs text-gray-400 mt-1">Contact an administrator to update your company assignment.</p>
                 </div>
-
-                {/* Company Website */}
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Company Website</label>
-                  <input
-                    type="text"
-                    value={formData.companyWebsite}
-                    onChange={(e) => handleFormChange('companyWebsite', e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* State */}
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">State</label>
-                  <div className="relative">
-                    <select
-                      value={formData.state}
-                      onChange={(e) => handleFormChange('state', e.target.value)}
-                      className="w-full appearance-none bg-white border border-gray-200 rounded-lg px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                    >
-                      <option value="Colorado">Colorado</option>
-                      <option value="Utah">Utah</option>
-                      <option value="Wyoming">Wyoming</option>
-                    </select>
-                    <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-
-                {/* EIN or Tax ID */}
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">EIN or Tax ID</label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      value={formData.einTaxId}
-                      onChange={(e) => handleFormChange('einTaxId', e.target.value)}
-                      className="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                    <LockIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  </div>
-                </div>
-
-                {/* Zip */}
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Zip</label>
-                  <div className="relative">
-                    <select
-                      value={formData.zip}
-                      onChange={(e) => handleFormChange('zip', e.target.value)}
-                      className="w-full appearance-none bg-white border border-gray-200 rounded-lg px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                    >
-                      <option value="80202">80202</option>
-                      <option value="80201">80201</option>
-                      <option value="89678">89678</option>
-                    </select>
-                    <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-
-                {/* Team */}
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Team</label>
-                  <div className="relative">
-                    <select
-                      value={formData.team}
-                      onChange={(e) => handleFormChange('team', e.target.value)}
-                      className="w-full appearance-none bg-white border border-gray-200 rounded-lg px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                    >
-                      {teamOptions.map(option => (
-                        <option key={option} value={option}>{option}</option>
-                      ))}
-                    </select>
-                    <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-
-                {/* Country */}
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Country</label>
-                  <div className="relative">
-                    <select
-                      value={formData.country}
-                      onChange={(e) => handleFormChange('country', e.target.value)}
-                      className="w-full appearance-none bg-white border border-gray-200 rounded-lg px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                    >
-                      <option value="US">US</option>
-                      <option value="CA">Canada</option>
-                      <option value="MX">Mexico</option>
-                    </select>
-                    <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                  </div>
-                </div>
-              </div>
+              )}
+              <p className="text-xs text-gray-400 mt-4">
+                Company settings are managed by administrators. Contact your admin to make changes.
+              </p>
             </div>
           )}
 
@@ -468,16 +561,16 @@ function Settings({ user }) {
                 </h5>
                 <div className="space-y-3">
                   {[
-                    { key: 'projectStatusUpdates', label: 'Project Status Updates' },
-                    { key: 'tasksAssignments', label: 'Tasks & Assignments' },
-                    { key: 'drawSubmissions', label: 'Draw Submissions' },
+                    { key: 'project_status_updates', label: 'Project Status Updates' },
+                    { key: 'task_assignments', label: 'Tasks & Assignments' },
+                    { key: 'draw_submissions', label: 'Draw Submissions' },
                     { key: 'messages', label: 'Messages' },
                   ].map(notification => (
                     <label key={notification.key} className="flex items-center gap-3 cursor-pointer">
                       <input
                         type="checkbox"
-                        checked={formData[notification.key]}
-                        onChange={(e) => handleFormChange(notification.key, e.target.checked)}
+                        checked={formData.notification_preferences[notification.key]}
+                        onChange={(e) => handleNotificationChange(notification.key, e.target.checked)}
                         className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900 cursor-pointer"
                       />
                       <span className="text-sm" style={{ color: '#374151' }}>{notification.label}</span>
@@ -489,14 +582,14 @@ function Settings({ user }) {
               {/* Format */}
               <div>
                 <h5 className="text-sm font-semibold mb-4" style={{ color: '#1D1D1F' }}>
-                  Format
+                  Delivery Format
                 </h5>
                 <div className="space-y-3">
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={formData.emailFormat}
-                      onChange={(e) => handleFormChange('emailFormat', e.target.checked)}
+                      checked={formData.notification_preferences.email_enabled}
+                      onChange={(e) => handleNotificationChange('email_enabled', e.target.checked)}
                       className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900 cursor-pointer"
                     />
                     <span className="text-sm" style={{ color: '#374151' }}>Email</span>
@@ -504,8 +597,8 @@ function Settings({ user }) {
                   <label className="flex items-center gap-3 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={formData.textFormat}
-                      onChange={(e) => handleFormChange('textFormat', e.target.checked)}
+                      checked={formData.notification_preferences.sms_enabled}
+                      onChange={(e) => handleNotificationChange('sms_enabled', e.target.checked)}
                       className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900 cursor-pointer"
                     />
                     <span className="text-sm" style={{ color: '#374151' }}>Text Message</span>
@@ -519,10 +612,17 @@ function Settings({ user }) {
             </div>
           )}
 
+          {/* Error Message */}
+          {saveError && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{saveError}</p>
+            </div>
+          )}
+
           {/* Success Message */}
-          {saveMessage && (
+          {saveSuccess && (
             <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm text-green-700">{saveMessage}</p>
+              <p className="text-sm text-green-700">Settings saved successfully!</p>
             </div>
           )}
 
@@ -530,11 +630,14 @@ function Settings({ user }) {
           <div className="flex flex-col-reverse lg:flex-row justify-end gap-3 mt-8">
             <button
               onClick={handleCancel}
-              className="w-full lg:w-auto px-6 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors"
+              disabled={!hasChanges || saving}
+              className="w-full lg:w-auto px-6 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ color: '#111111', border: '1px solid #111111' }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#111111'
-                e.currentTarget.style.color = '#FFFFFF'
+                if (!e.currentTarget.disabled) {
+                  e.currentTarget.style.backgroundColor = '#111111'
+                  e.currentTarget.style.color = '#FFFFFF'
+                }
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = 'transparent'
@@ -545,10 +648,11 @@ function Settings({ user }) {
             </button>
             <button
               onClick={handleSave}
-              className="w-full lg:w-auto px-6 py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-colors"
+              disabled={!hasChanges || saving}
+              className="w-full lg:w-auto px-6 py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: '#1D1D1F' }}
             >
-              Save
+              {saving ? 'Saving...' : 'Save'}
             </button>
           </div>
         </div>
@@ -570,14 +674,6 @@ function ChevronRightIcon({ className }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-    </svg>
-  )
-}
-
-function EyeOffIcon({ className }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
     </svg>
   )
 }
