@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import GlobalNav from '../components/GlobalNav'
 import AISummaryModal from '../components/modals/AISummaryModal'
+import { MessagesTab } from '../components/messages'
 
 // Mock project data
 const projectData = {
@@ -1523,9 +1524,16 @@ function ProjectDetail({ user }) {
                   </div>
                 </div>
               )}
-
+              {/* Messages Tab Content */}
+              {activeTab === 'messages' && (
+                <MessagesTab 
+                  projectId={projectId} 
+                  currentUserId={user?.id}
+                />
+              )}
               {/* Placeholder for other tabs */}
-              {!['overview', 'contacts', 'files', 'financials', 'permits', 'contractors'].includes(activeTab) && (
+
+              {!['overview', 'contacts', 'files', 'financials', 'permits', 'contractors', 'messages'].includes(activeTab) && (
                 <div className="hidden lg:block p-12 text-center">
                   <p className="text-gray-500">
                     {tabs.find(t => t.id === activeTab)?.label} content coming soon...
