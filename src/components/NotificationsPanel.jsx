@@ -1,42 +1,42 @@
 import { useState, useEffect, useRef } from 'react'
-import { CloseLarge, Menu, ChevronRight, Logout } from '@carbon/icons-react'
+import { useNavigate } from 'react-router-dom'
+import { CloseLarge, Menu, ChevronRight, Logout, Checkmark } from '@carbon/icons-react'
 import { supabase } from '../lib/supabase'
+import { useNotifications } from '../hooks/useNotifications'
 
-// Mock notifications data based on design
-const notificationsData = [
-  {
-    id: 1,
-    projectName: 'Project Alpha',
-    user: 'Jake',
-    avatar: 'J',
-    timestamp: '1 Hour ago',
-    message: 'Can you confirm the dumpster delivery for Thursday?',
-    unread: true,
-  },
-  {
-    id: 2,
-    projectName: 'Project Delta',
-    user: 'Jake',
-    avatar: 'J',
-    timestamp: '2 Hours ago',
-    message: 'Please upload the signed change order by EOD.',
-    unread: true,
-  },
-  {
-    id: 3,
-    projectName: 'Project Foxtrot',
-    user: 'Jake',
-    avatar: 'J',
-    timestamp: '1 Day ago',
-    message: 'Following up on the HVAC delivery — @Tyler any updates?',
-    unread: true,
-    mention: 'Tyler',
-  },
-]
+// Helper to format relative timestamps
+function formatTimestamp(dateString) {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffMs = now - date
+  const diffMins = Math.floor(diffMs / 60000)
+  const diffHours = Math.floor(diffMs / 3600000)
+  const diffDays = Math.floor(diffMs / 86400000)
 
-function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobile = false }) {
-  const [notifications] = useState(notificationsData)
+  if (diffMins < 1) return 'Just now'
+  if (diffMins < 60) return `${diffMins} min ago`
+  if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`
+  if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`
+  return date.toLocaleDateString()
+}
+
+// Get initials from name
+function getInitials(firstName, lastName) {
+  const first = firstName?.[0] || ''
+  const last = lastName?.[0] || ''
+  return (first + last).toUpperCase() || '?'
+}
+
+function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobile = false, userId }) {
+  const { 
+    notifications, 
+    loading, 
+    unreadCount, 
+    markAsRead, 
+    markAllAsRead 
+  } = useNotifications(userId)
   const panelRef = useRef(null)
+  const navigate = useNavigate()
 
   // Close on click outside (desktop only)
   useEffect(() => {
@@ -78,23 +78,111 @@ function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobil
     }
   }
 
+  // Handle notification click - navigate to relevant item
+  const handleNotificationClick = async (notification) => {
+    // Mark as read
+    if (!notification.read) {
+      await markAsRead(notification.id)
+    }
+
+    // Navigate based on type
+    const { type, data } = notification
+    onClose()
+
+    if (type === 'message' || type === 'mention') {
+      if (data?.project_id) {
+        navigate(`/projects/${data.project_id}?tab=messages`)
+      }
+    } else if (type === 'task_assigned') {
+      if (data?.project_id) {
+        navigate(`/projects/${data.project_id}?tab=tasks`)
+      }
+    } else if (type === 'project_status') {
+      if (data?.project_id) {
+        navigate(`/projects/${data.project_id}`)
+      }
+    } else if (type === 'draw_submission') {
+      if (data?.project_id) {
+        navigate(`/projects/${data.project_id}?tab=draws`)
+      }
+    }
+  }
+
   // Function to render message with @mentions highlighted
-  const renderMessageWithMentions = (message, mention) => {
-    if (!mention) return message
-    const parts = message.split(`@${mention}`)
-    return parts.map((part, index) => (
-      <span key={index}>
-        {part}
-        {index < parts.length - 1 && (
-          <span className="text-blue-600 font-medium">@{mention}</span>
-        )}
-      </span>
-    ))
+  const renderBodyWithMentions = (body) => {
+    if (!body) return null
+    const mentionRegex = /@(\w+)/g
+    const parts = body.split(mentionRegex)
+    
+    return parts.map((part, index) => {
+      // Odd indices are the captured mention names
+      if (index % 2 === 1) {
+        return <span key={index} className="text-blue-600 font-medium">@{part}</span>
+      }
+      return part
+    })
   }
 
   if (!isOpen) return null
 
-  // Mobile Panel - Full width, no animation
+  // Notification item component (shared between mobile and desktop)
+  const NotificationItem = ({ notification }) => {
+    const senderName = notification.data?.sender_name || 'System'
+    const senderInitials = notification.data?.sender_initials || senderName[0] || '?'
+    const projectName = notification.data?.project_name || notification.title
+
+    return (
+      <div 
+        onClick={() => handleNotificationClick(notification)}
+        className="px-4 lg:px-6 py-4 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0"
+      >
+        <div className="flex gap-3">
+          {/* Avatar */}
+          <div className="flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-sm font-medium text-amber-800">
+              {senderInitials}
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-sm font-medium text-gray-900">{projectName}</p>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm text-blue-600 font-medium">{senderName}</span>
+                  <span className="text-xs text-gray-400">•</span>
+                  <span className="text-xs text-gray-400">{formatTimestamp(notification.created_at)}</span>
+                </div>
+              </div>
+              {!notification.read && (
+                <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1.5" />
+              )}
+            </div>
+            <p className="text-sm text-gray-600 mt-1">
+              {renderBodyWithMentions(notification.body)}
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Empty state
+  const EmptyState = () => (
+    <div className="px-6 py-12 text-center">
+      <p className="text-sm text-gray-500">No notifications yet</p>
+    </div>
+  )
+
+  // Loading state
+  const LoadingState = () => (
+    <div className="px-6 py-12 flex justify-center">
+      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-gray-900"></div>
+    </div>
+  )
+
+  // Mobile Panel
   if (isMobile) {
     return (
       <>
@@ -109,9 +197,8 @@ function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobil
           className="fixed top-0 left-0 right-0 bg-white z-50 lg:hidden rounded-b-2xl"
           style={{ boxShadow: '0 4px 24px rgba(0, 0, 0, 0.12)' }}
         >
-          {/* Header - matches other mobile panels */}
+          {/* Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 relative">
-            {/* Left side - Hamburger */}
             <button 
               className="p-2 -ml-2 z-10"
               onClick={() => {
@@ -122,10 +209,8 @@ function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobil
               <Menu size={24} style={{ color: '#1D1D1F' }} />
             </button>
 
-            {/* Center - Logo */}
             <h1 className="absolute left-1/2 -translate-x-1/2 text-lg font-bold" style={{ color: '#1D1D1F' }}>JMPU</h1>
 
-            {/* Right side - Close */}
             <div className="flex items-center gap-2 z-10">
               <button 
                 className="w-8 h-8 flex items-center justify-center"
@@ -136,55 +221,35 @@ function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobil
             </div>
           </div>
 
-          {/* Notifications Title */}
-          <div className="px-4 py-3 border-b border-gray-100">
+          {/* Notifications Title + Mark All Read */}
+          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
             <h3 className="font-semibold text-gray-900">Notifications</h3>
+            {unreadCount > 0 && (
+              <button
+                onClick={markAllAsRead}
+                className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+              >
+                <Checkmark size={14} />
+                Mark all read
+              </button>
+            )}
           </div>
 
           {/* Notification Items */}
           <div className="max-h-[50vh] overflow-y-auto">
-            {notifications.map((notification) => (
-              <div 
-                key={notification.id}
-                className="px-4 py-4 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0"
-              >
-                <div className="flex gap-3">
-                  {/* Avatar */}
-                  <div className="flex-shrink-0">
-                    <div 
-                      className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-sm font-medium text-amber-800"
-                    >
-                      {notification.avatar}
-                    </div>
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">{notification.projectName}</p>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-sm text-blue-600 font-medium">{notification.user}</span>
-                          <span className="text-xs text-gray-400">•</span>
-                          <span className="text-xs text-gray-400">{notification.timestamp}</span>
-                        </div>
-                      </div>
-                      {notification.unread && (
-                        <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1.5" />
-                      )}
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">
-                      {renderMessageWithMentions(notification.message, notification.mention)}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ))}
+            {loading ? (
+              <LoadingState />
+            ) : notifications.length === 0 ? (
+              <EmptyState />
+            ) : (
+              notifications.map((notification) => (
+                <NotificationItem key={notification.id} notification={notification} />
+              ))
+            )}
           </div>
 
           {/* Footer Actions */}
           <div className="px-6 py-6 border-t border-gray-100">
-            {/* View All Notifications Button */}
             <button 
               className="w-full flex items-center justify-between px-0 py-4 text-sm font-medium hover:opacity-70 transition-opacity"
               style={{ 
@@ -197,7 +262,6 @@ function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobil
               <ChevronRight size={20} />
             </button>
 
-            {/* Logout */}
             <button 
               onClick={handleLogout}
               className="w-full flex items-center gap-3 py-4 text-sm hover:opacity-70 transition-opacity"
@@ -212,7 +276,7 @@ function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobil
     )
   }
 
-  // Desktop Panel - Dropdown
+  // Desktop Panel
   return (
     <div 
       ref={panelRef}
@@ -220,54 +284,34 @@ function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobil
       style={{ boxShadow: '0 4px 24px rgba(0, 0, 0, 0.12)' }}
     >
       {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-100">
+      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
         <h3 className="font-semibold text-gray-900">Notifications</h3>
+        {unreadCount > 0 && (
+          <button
+            onClick={markAllAsRead}
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700"
+          >
+            <Checkmark size={14} />
+            Mark all read
+          </button>
+        )}
       </div>
 
       {/* Notification Items */}
       <div className="max-h-[320px] overflow-y-auto">
-        {notifications.map((notification) => (
-          <div 
-            key={notification.id}
-            className="px-6 py-4 hover:bg-gray-50 cursor-pointer border-b border-gray-50 last:border-b-0"
-          >
-            <div className="flex gap-3">
-              {/* Avatar */}
-              <div className="flex-shrink-0">
-                <div 
-                  className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-sm font-medium text-amber-800"
-                >
-                  {notification.avatar}
-                </div>
-              </div>
-
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">{notification.projectName}</p>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm text-blue-600 font-medium">{notification.user}</span>
-                      <span className="text-xs text-gray-400">•</span>
-                      <span className="text-xs text-gray-400">{notification.timestamp}</span>
-                    </div>
-                  </div>
-                  {notification.unread && (
-                    <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0 mt-1.5" />
-                  )}
-                </div>
-                <p className="text-sm text-gray-600 mt-1">
-                  {renderMessageWithMentions(notification.message, notification.mention)}
-                </p>
-              </div>
-            </div>
-          </div>
-        ))}
+        {loading ? (
+          <LoadingState />
+        ) : notifications.length === 0 ? (
+          <EmptyState />
+        ) : (
+          notifications.map((notification) => (
+            <NotificationItem key={notification.id} notification={notification} />
+          ))
+        )}
       </div>
 
       {/* Footer Actions */}
       <div className="px-6 py-6 border-t border-gray-100">
-        {/* View All Notifications Button */}
         <button 
           className="w-full flex items-center justify-between px-0 py-4 text-sm font-medium hover:opacity-70 transition-opacity"
           style={{ 
@@ -280,7 +324,6 @@ function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobil
           <ChevronRight size={20} />
         </button>
 
-        {/* Logout */}
         <button 
           onClick={handleLogout}
           className="w-full flex items-center gap-3 py-4 text-sm hover:opacity-70 transition-opacity"
@@ -292,24 +335,6 @@ function NotificationsPanel({ isOpen, onClose, onOpenMenu, onOpenSearch, isMobil
       </div>
     </div>
   )
-}
-
-// Export a hook for managing notification state
-export function useNotifications() {
-  const [isOpen, setIsOpen] = useState(false)
-  const [notifications] = useState(notificationsData)
-  
-  const unreadCount = notifications.filter(n => n.unread).length
-  
-  const toggle = () => setIsOpen(prev => !prev)
-  const close = () => setIsOpen(false)
-  
-  return {
-    isOpen,
-    toggle,
-    close,
-    unreadCount
-  }
 }
 
 export default NotificationsPanel

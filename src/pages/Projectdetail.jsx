@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import GlobalNav from '../components/GlobalNav'
 import AISummaryModal from '../components/modals/AISummaryModal'
 import { MessagesTab } from '../components/messages'
@@ -176,7 +176,22 @@ const tabs = [
 function ProjectDetail({ user }) {
   const navigate = useNavigate()
   const { projectId } = useParams()
-  const [activeTab, setActiveTab] = useState('overview')
+  const [searchParams] = useSearchParams()
+  const initialTab = searchParams.get('tab') || 'overview'
+  const [activeTab, setActiveTab] = useState(initialTab)
+
+ // Scroll to top when arriving via tab param (e.g., from notification)
+  useEffect(() => {
+    if (searchParams.get('tab')) {
+      setTimeout(() => {
+        const scrollContainer = document.querySelector('.overflow-y-auto')
+        if (scrollContainer) {
+          scrollContainer.scrollTop = 0
+        }
+      }, 500)
+    }
+  }, [])
+
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
   const [paymentModalOpen, setPaymentModalOpen] = useState(false)

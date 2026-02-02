@@ -1,11 +1,12 @@
 // src/components/GlobalNav.jsx
+// Sprint 14: Live notifications integration
 // Sprint 9: Added permission-based navigation visibility
-// Profiles link only shows for users with canViewProfiles permission
 // ============================================================================
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import NotificationsPanel, { useNotifications } from './NotificationsPanel'
+import NotificationsPanel from './NotificationsPanel'
+import { useNotifications } from '../hooks/useNotifications'
 import { useCurrentProfile } from '../hooks/useCurrentProfile'
 import { usePermissions } from '../hooks/usePermissions'
 import { 
@@ -40,11 +41,14 @@ function GlobalNav({ user, activeNav, children }) {
   const navigate = useNavigate()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [menuSearchActive, setMenuSearchActive] = useState(false)
-  const notifications = useNotifications()
+  const [notificationsPanelOpen, setNotificationsPanelOpen] = useState(false)
   
   // Get current user's profile and permissions
   const { profile, loading: profileLoading } = useCurrentProfile()
   const permissions = usePermissions(profile)
+  
+  // Live notifications
+  const { unreadCount } = useNotifications(user?.id)
 
   const getInitials = (name) => {
     if (!name) return 'U'
@@ -65,6 +69,10 @@ function GlobalNav({ user, activeNav, children }) {
     }
     navigate(routes[navId] || '/')
   }
+
+  // Notification panel controls
+  const toggleNotifications = () => setNotificationsPanelOpen(prev => !prev)
+  const closeNotifications = () => setNotificationsPanelOpen(false)
 
   // Filter nav items based on permissions
   const visibleNavItems = navItems.filter(item => {
@@ -119,7 +127,7 @@ function GlobalNav({ user, activeNav, children }) {
                 onClick={() => {
                   setMobileMenuOpen(false)
                   setMenuSearchActive(false)
-                  notifications.toggle()
+                  toggleNotifications()
                 }}
               >
                 <div 
@@ -131,7 +139,7 @@ function GlobalNav({ user, activeNav, children }) {
                 >
                   {getInitials(userName)}
                 </div>
-                {notifications.unreadCount > 0 && (
+                {unreadCount > 0 && (
                   <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
                 )}
               </div>
@@ -205,7 +213,7 @@ function GlobalNav({ user, activeNav, children }) {
                     </button>
                   )}
                   
-                  {/* Profiles - admin only */}
+                  {/* Profiles - permission-gated */}
                   {shouldShowNavItem('profiles') && (
                     <button
                       onClick={() => handleNavClick('profiles')}
@@ -368,20 +376,21 @@ function GlobalNav({ user, activeNav, children }) {
                   color: '#111111',
                   border: '1px solid #111111'
                 }}
-                onClick={notifications.toggle}
+                onClick={toggleNotifications}
                 title="Notifications"
               >
                 {getInitials(userName)}
               </div>
-              {notifications.unreadCount > 0 && (
+              {unreadCount > 0 && (
                 <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
               )}
 
               {/* Desktop Notifications Panel */}
               <NotificationsPanel 
-                isOpen={notifications.isOpen} 
-                onClose={notifications.close}
+                isOpen={notificationsPanelOpen} 
+                onClose={closeNotifications}
                 isMobile={false}
+                userId={user?.id}
               />
             </div>
           </div>
@@ -401,7 +410,7 @@ function GlobalNav({ user, activeNav, children }) {
           <h1 className="absolute left-1/2 -translate-x-1/2 text-lg font-bold" style={{ color: '#1D1D1F' }}>JMPU</h1>
 
           {/* Right side - Avatar only */}
-          <div className="relative z-10" onClick={notifications.toggle}>
+          <div className="relative z-10" onClick={toggleNotifications}>
             <div 
               className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium cursor-pointer"
               style={{ 
@@ -412,7 +421,7 @@ function GlobalNav({ user, activeNav, children }) {
             >
               {getInitials(userName)}
             </div>
-            {notifications.unreadCount > 0 && (
+            {unreadCount > 0 && (
               <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
             )}
           </div>
@@ -420,10 +429,11 @@ function GlobalNav({ user, activeNav, children }) {
 
         {/* Mobile Notifications Panel */}
         <NotificationsPanel
-          isOpen={notifications.isOpen}
-          onClose={notifications.close}
+          isOpen={notificationsPanelOpen}
+          onClose={closeNotifications}
           onOpenMenu={() => setMobileMenuOpen(true)}
           isMobile={true}
+          userId={user?.id}
         />
 
         {/* Page Content - Scrollable Area */}
