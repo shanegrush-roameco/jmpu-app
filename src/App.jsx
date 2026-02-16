@@ -1,5 +1,6 @@
 // src/App.jsx
 // Sprint 12: Added Onboarding for new users
+// Sprint 15: Added QuickBooks OAuth callback route
 // ============================================================================
 
 import { useEffect, useState } from 'react'
@@ -33,7 +34,6 @@ function App() {
         .single()
 
       if (error) {
-        // Profile might not exist yet (edge case)
         console.error('Error fetching profile:', error)
         setProfile(null)
       } else {
@@ -203,6 +203,18 @@ function App() {
               <Navigate to="/login" replace />
             ) : needsOnboarding ? (
               <Navigate to="/onboarding" replace />
+            ) : (
+              <Settings user={session.user} />
+            )
+          } 
+        />
+
+        {/* QuickBooks OAuth callback - redirects to Settings with params */}
+        <Route 
+          path="/settings/integrations/callback" 
+          element={
+            !session ? (
+              <Navigate to="/login" replace />
             ) : (
               <Settings user={session.user} />
             )

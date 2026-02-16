@@ -6,12 +6,14 @@ import {
   updateNotificationPreferences,
   updateAvatar 
 } from '../hooks/useProfiles'
+import IntegrationsTab from '../components/IntegrationsTab'
 
 // Tab configuration
 const settingsTabs = [
   { id: 'account', label: 'Account Settings' },
   { id: 'company', label: 'Company Settings' },
   { id: 'notifications', label: 'Notifications' },
+  { id: 'integrations', label: 'Integrations' },
 ]
 
 // Job title options
@@ -107,6 +109,15 @@ function Settings({ user }) {
       setHasChanges(JSON.stringify(formData) !== originalData)
     }
   }, [formData, originalData])
+
+// Read tab from URL params (for OAuth callback redirect)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const tab = params.get('tab')
+    if (tab && settingsTabs.some(t => t.id === tab)) {
+      setActiveTab(tab)
+    }
+  }, [])
 
   const handleFormChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -610,6 +621,11 @@ function Settings({ user }) {
                 </div>
               </div>
             </div>
+          )}
+
+{/* Integrations Tab */}
+          {activeTab === 'integrations' && (
+            <IntegrationsTab />
           )}
 
           {/* Error Message */}
