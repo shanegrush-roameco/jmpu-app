@@ -3,7 +3,8 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import GlobalNav from '../components/GlobalNav'
 import AISummaryModal from '../components/modals/AISummaryModal'
 import { MessagesTab } from '../components/messages'
-
+import FinancialValidation from '../components/FinancialValidation'
+10
 // Mock project data
 const projectData = {
   id: '1283614-1',
@@ -1074,6 +1075,11 @@ function ProjectDetail({ user }) {
               {/* Financials Tab Content */}
               {activeTab === 'financials' && (
                 <div className="p-6">
+                {/* Financial Validation - Sprint 16 */}
+                  <FinancialValidation
+                    projectId={projectId}
+                    userRole={user?.role || 'viewer'}
+                  />
                   {/* Invoices Section */}
                   <div className="mb-8">
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">

@@ -16,6 +16,8 @@ import {
   useProjectsForFilter,
 } from '../hooks/useReports'
 import { generateAndDownloadReport } from '../lib/exportUtils'
+import { VerificationBadge } from '../components/FinancialValidation'
+import { useVerificationBadges } from '../hooks/useFinancialValidation'
 
 // Quarter options for report generation
 const quarterOptions = [
@@ -107,6 +109,12 @@ function Reports({ user }) {
 
   const { contractors, loading: contractorsLoading } = useContractors()
   const { projects: projectsFilter, loading: projectsLoading } = useProjectsForFilter()
+  // Sprint 16: Verification badges
+  const projectIdsForBadges = [
+    ...jobsData.map(j => j.project_id),
+    ...actionCenterData.map(a => a.project_id),
+  ].filter(Boolean)
+  const { badges: verificationBadges } = useVerificationBadges(projectIdsForBadges)
 
   // =========================================================================
   // Event Handlers
