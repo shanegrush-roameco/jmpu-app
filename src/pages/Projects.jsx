@@ -4,7 +4,7 @@
 // ============================================================================
 
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import GlobalNav from '../components/GlobalNav'
 import DatePicker from '../components/DatePicker'
 import { useProjects, createProject } from '../hooks/useProjects'
@@ -32,8 +32,11 @@ const projectTypeLabels = {
 
 function Projects({ user }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState('All')
+  const [statusFilter, setStatusFilter] = useState(
+    location.state?.statusFilter ?? 'All'
+  )
   const [selectedProjects, setSelectedProjects] = useState(new Set())
   const [newProjectModalOpen, setNewProjectModalOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)

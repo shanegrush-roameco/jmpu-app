@@ -2,7 +2,7 @@
 // CRUD operations for Tasks
 // ============================================================================
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase, subscribeToTable } from '../lib/supabase';
 
 // ============================================================================
@@ -23,12 +23,11 @@ export function useTasks(options = {}) {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const hasLoaded = useRef(false);
 
   const fetchTasks = useCallback(async () => {
     try {
-      setLoading(true);
-      setError(null);
-
+      if (!hasLoaded.current) setLoading(true);
       let query = supabase
         .from('tasks')
         .select(`
@@ -71,8 +70,9 @@ export function useTasks(options = {}) {
       console.error('Error fetching tasks:', err);
       setError(err.message);
     } finally {
-      setLoading(false);
-    }
+  setLoading(false);
+  hasLoaded.current = true;  // ← add it here
+}
   }, [projectId, assignedTo, status, priority, sortBy, sortOrder, limit]);
 
   // Initial fetch

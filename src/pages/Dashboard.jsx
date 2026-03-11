@@ -1,5 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import GlobalNav from '../components/GlobalNav'
+import TaskModal from '../components/modals/TaskModal'
+import CreateProjectModal from '../components/modals/CreateProjectModal'
+import { useTasks, updateTask } from '../hooks/useTasks'
 
 // Mock data based on Figma design
 const stats = [
@@ -8,6 +12,7 @@ const stats = [
     value: 40, 
     subtitle: '22 In Progress • 3 At Risk',
     showArrow: false,
+    filterValue: null,
     progressSegments: [
       { percent: 55, color: '#22C55E' },
       { percent: 7.5, color: '#EAB308' },
@@ -19,6 +24,7 @@ const stats = [
     subtitle: '-2 since last week',
     statusDot: '#22C55E',
     showArrow: true,
+    filterValue: 'in_progress',
     progressSegments: [
       { percent: 55, color: '#22C55E' },
     ]
@@ -29,6 +35,7 @@ const stats = [
     subtitle: 'View',
     statusDot: '#EAB308',
     showArrow: true,
+    filterValue: null,
     progressSegments: [
       { percent: 7.5, color: '#EAB308' },
     ]
@@ -39,6 +46,7 @@ const stats = [
     subtitle: '↑ 33% from last month',
     statusDot: '#3B82F6',
     showArrow: false,
+    filterValue: null,
     progressSegments: [
       { percent: 10, color: '#3B82F6' },
     ]
@@ -49,6 +57,7 @@ const stats = [
     subtitle: 'View',
     statusDot: '#6B7280',
     showArrow: true,
+    filterValue: 'planning',
     progressSegments: [
       { percent: 27.5, color: '#6B7280' },
     ]
@@ -86,18 +95,27 @@ const dueThisWeek = [
 ]
 
 function Dashboard({ user }) {
-  const [completedTasks, setCompletedTasks] = useState(new Set())
+  const navigate = useNavigate()
+  const [showNewTaskModal, setShowNewTaskModal] = useState(false)
+  const [showNewProjectModal, setShowNewProjectModal] = useState(false)
 
-  const toggleTask = (taskId) => {
-    setCompletedTasks(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(taskId)) {
-        newSet.delete(taskId)
-      } else {
-        newSet.add(taskId)
-      }
-      return newSet
-    })
+  // Fetch tasks assigned to the current user
+  const { tasks: myTasks, loading: tasksLoading, refetch: refetchTasks } = useTasks({
+    assignedTo: user?.id,
+    status: ['not_started', 'in_progress', 'blocked'], // Exclude completed/cancelled
+    sortBy: 'due_date',
+    sortOrder: 'asc',
+    limit: 20,
+  })
+
+  const toggleTask = async (taskId, currentStatus) => {
+    const newStatus = currentStatus === 'completed' ? 'not_started' : 'completed'
+    try {
+      await updateTask(taskId, { status: newStatus })
+      refetchTasks()
+    } catch (err) {
+      console.error('Failed to update task:', err)
+    }
   }
 
   return (
@@ -113,6 +131,7 @@ function Dashboard({ user }) {
           <button 
             className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
             style={{ backgroundColor: '#1D1D1F' }}
+            onClick={() => setShowNewProjectModal(true)}
           >
             New Project
           </button>
@@ -130,6 +149,7 @@ function Dashboard({ user }) {
               e.currentTarget.style.backgroundColor = 'transparent'
               e.currentTarget.style.color = '#111111'
             }}
+            onClick={() => setShowNewTaskModal(true)}
           >
             New Task
           </button>
@@ -176,8 +196,17 @@ function Dashboard({ user }) {
               </div>
               
               <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-500">{stat.subtitle}</span>
-                {stat.showArrow && <ChevronRightIcon className="w-4 h-4 text-gray-400" />}
+                {stat.showArrow ? (
+                  <button
+                    onClick={() => navigate('/projects', { state: { statusFilter: stat.filterValue } })}
+                    className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 transition-colors"
+                  >
+                    <span>{stat.subtitle}</span>
+                    <ChevronRightIcon className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <span className="text-xs text-gray-500">{stat.subtitle}</span>
+                )}
               </div>
             </div>
           ))}
@@ -195,41 +224,64 @@ function Dashboard({ user }) {
           }}
         >
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-semibold" style={{ color: '#1D1D1F' }}>Today's Tasks</h3>
+            <h3 className="text-base font-semibold" style={{ color: '#1D1D1F' }}>My Tasks</h3>
             <button className="text-sm text-gray-500 flex items-center gap-1">
               View All <ChevronRightIcon className="w-4 h-4" />
             </button>
           </div>
-          <div className="space-y-3">
-            {myTasks.map((task) => (
-              <div key={task.id} className="flex items-start gap-3">
-                <button
-                  onClick={() => toggleTask(task.id)}
-                  className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${
-                    completedTasks.has(task.id)
-                      ? 'bg-gray-900 border-gray-900'
-                      : 'border-gray-300 hover:border-gray-400'
-                  }`}
-                >
-                  {completedTasks.has(task.id) && (
-                    <CheckIcon className="w-3 h-3 text-white" />
-                  )}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${completedTasks.has(task.id) ? 'line-through text-gray-400' : 'text-gray-900'}`}>
-                    {task.title}
-                  </p>
-                  <p className="text-xs text-gray-500">{task.project} • {task.assignee}</p>
-                </div>
-                <div 
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
-                  style={{ backgroundColor: '#F3F4F6', color: '#374151' }}
-                >
-                  {task.avatar}
-                </div>
-              </div>
-            ))}
-          </div>
+
+          {/* Loading */}
+          {tasksLoading && (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-300 border-t-gray-600" />
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!tasksLoading && myTasks.length === 0 && (
+            <p className="text-sm text-gray-400 text-center py-8">No tasks assigned to you.</p>
+          )}
+
+          {/* Task list */}
+          {!tasksLoading && myTasks.length > 0 && (
+            <div className="space-y-3">
+              {myTasks.map((task) => {
+                const isCompleted = task.status === 'completed'
+                const initials = task.assigned_user?.full_name
+                  ?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?'
+                return (
+                  <div key={task.id} className="flex items-start gap-3">
+                    <button
+                      onClick={() => toggleTask(task.id, task.status)}
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors ${
+                        isCompleted
+                          ? 'bg-gray-900 border-gray-900'
+                          : 'border-gray-300 hover:border-gray-400'
+                      }`}
+                    >
+                      {isCompleted && <CheckIcon className="w-3 h-3 text-white" />}
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm font-medium ${isCompleted ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                        {task.title}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {task.project?.name || 'No project'}
+                        {task.due_date && ` • Due ${new Date(task.due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                      </p>
+                    </div>
+                    <div
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium flex-shrink-0"
+                      style={{ backgroundColor: '#F3F4F6', color: '#374151' }}
+                    >
+                      {initials}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+                
         </div>
 
         {/* Right Column - Financials + Due This Week stacked */}
@@ -305,6 +357,18 @@ function Dashboard({ user }) {
           </div>
         </div>
       </div>
+
+      <TaskModal
+        isOpen={showNewTaskModal}
+        onClose={() => setShowNewTaskModal(false)}
+        onSuccess={() => { setShowNewTaskModal(false); refetchTasks(); }}
+      />
+
+      <CreateProjectModal
+        isOpen={showNewProjectModal}
+        onClose={() => setShowNewProjectModal(false)}
+        onSuccess={() => setShowNewProjectModal(false)}
+      />
     </GlobalNav>
   )
 }

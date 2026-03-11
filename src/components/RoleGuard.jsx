@@ -4,7 +4,7 @@
 // ============================================================================
 
 import { Navigate } from 'react-router-dom'
-import { useCurrentProfile } from '../hooks/useCurrentProfile'
+import { useCurrentProfile } from '../hooks/useProfiles'
 import { usePermissions } from '../hooks/usePermissions'
 
 /**

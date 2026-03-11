@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import GlobalNav from '../components/GlobalNav'
-import { useCurrentProfile } from '../hooks/useCurrentProfile'
+import { useCurrentProfile } from '../hooks/useProfiles'
 import { usePermissions, getRoleDisplayName } from '../hooks/usePermissions'
 import { 
   useProfiles, 

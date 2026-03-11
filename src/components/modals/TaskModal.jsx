@@ -1,11 +1,9 @@
-// src/components/modals/TaskModal.jsx
-// Modal for creating and editing tasks
-// ============================================================================
 
 import { useState, useEffect } from 'react';
-import { Close, Add, Edit, Calendar, Flag, User } from '@carbon/icons-react';
+import { Close, ChevronDown } from '@carbon/icons-react';
 import { createTask, updateTask } from '../../hooks/useTasks';
 import { useProfiles } from '../../hooks/useProfiles';
+import { useProjects } from '../../hooks/useProjects';
 
 // ============================================================================
 // Constants
@@ -40,7 +38,11 @@ export default function TaskModal({
 }) {
   const isEditing = !!task;
   const { profiles: teamMembers } = useProfiles({ status: 'active' });
-  
+
+  // Only fetch projects when no projectId is provided (Dashboard context)
+  const { projects } = useProjects(projectId ? { limit: 0 } : { limit: 50, sortBy: 'name', sortOrder: 'asc' });
+  const [selectedProjectId, setSelectedProjectId] = useState(projectId || '');
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -55,6 +57,7 @@ export default function TaskModal({
 
   // Initialize form when task changes (for editing)
   useEffect(() => {
+    setSelectedProjectId(projectId || '');
     if (task) {
       setFormData({
         title: task.title || '',
@@ -76,6 +79,15 @@ export default function TaskModal({
     }
   }, [task, isOpen]);
 
+  // Close on ESC key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose()
+    }
+    if (isOpen) document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onClose])
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -88,6 +100,9 @@ export default function TaskModal({
     const newErrors = {};
     if (!formData.title.trim()) {
       newErrors.title = 'Task title is required';
+    }
+    if (!projectId && !isEditing && !selectedProjectId) {
+      newErrors.project = 'Please select a project';
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -113,9 +128,10 @@ export default function TaskModal({
       if (isEditing) {
         result = await updateTask(task.id, taskData);
       } else {
+        const resolvedProjectId = projectId || selectedProjectId || null;
         result = await createTask({
           ...taskData,
-          project_id: projectId,
+          project_id: resolvedProjectId,
           parent_task_id: parentTaskId || null,
         });
       }
@@ -142,12 +158,9 @@ export default function TaskModal({
       >
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            {isEditing ? <Edit size={20} className="text-gray-500" /> : <Add size={20} className="text-gray-500" />}
-            <h2 className="text-lg font-semibold text-[#1D1D1F]">
-              {isEditing ? 'Edit Task' : parentTaskId ? 'Add Subtask' : 'Add Task'}
-            </h2>
-          </div>
+          <h2 className="text-lg font-semibold text-[#1D1D1F]">
+            {isEditing ? 'Edit Task' : parentTaskId ? 'Add Subtask' : 'Add Task'}
+          </h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <Close size={20} className="text-gray-500" />
           </button>
@@ -162,10 +175,35 @@ export default function TaskModal({
               </div>
             )}
 
+            {/* Project selector -- only shown when opening from Dashboard (no projectId context) */}
+            {!projectId && !isEditing && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Project <span style={{ color: '#E8500A' }}>*</span>
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedProjectId}
+                    onChange={(e) => setSelectedProjectId(e.target.value)}
+                    className="w-full appearance-none px-4 py-2 pr-10 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F] bg-white"
+                    style={{ fontSize: '16px', letterSpacing: '0.16px' }}
+                  >
+                    <option value="">Select a project...</option>
+                    {projects?.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} {p.project_number ? `(${p.project_number})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronIcon />
+                </div>
+              </div>
+            )}
+
             {/* Task Title */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Task Title *
+                Task Title <span style={{ color: '#E8500A' }}>*</span>
               </label>
               <input
                 type="text"
@@ -174,7 +212,7 @@ export default function TaskModal({
                 onChange={handleChange}
                 placeholder="Enter task title..."
                 autoFocus
-                className={`w-full px-4 py-3 rounded-xl border ${
+                className={`w-full px-4 py-2 rounded-xl border ${
                   errors.title ? 'border-red-300' : 'border-gray-200'
                 } focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F]`}
                 style={{ fontSize: '16px', letterSpacing: '0.16px' }}
@@ -193,7 +231,7 @@ export default function TaskModal({
                 onChange={handleChange}
                 rows={3}
                 placeholder="Add details about this task..."
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F] resize-none"
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F] resize-none"
                 style={{ fontSize: '16px', letterSpacing: '0.16px' }}
               />
             </div>
@@ -204,41 +242,44 @@ export default function TaskModal({
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Status
                 </label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F] bg-white"
-                  style={{ fontSize: '16px', letterSpacing: '0.16px' }}
-                >
-                  {TASK_STATUSES.map((status) => (
-                    <option key={status.value} value={status.value}>
-                      {status.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleChange}
+                    className="w-full appearance-none px-4 py-2 pr-10 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F] bg-white"
+                    style={{ fontSize: '16px', letterSpacing: '0.16px' }}
+                  >
+                    {TASK_STATUSES.map((status) => (
+                      <option key={status.value} value={status.value}>
+                        {status.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronIcon />
+                </div>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  <span className="flex items-center gap-1.5">
-                    <Flag size={14} />
-                    Priority
-                  </span>
+                  Priority
                 </label>
-                <select
-                  name="priority"
-                  value={formData.priority}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F] bg-white"
-                  style={{ fontSize: '16px', letterSpacing: '0.16px' }}
-                >
-                  {TASK_PRIORITIES.map((priority) => (
-                    <option key={priority.value} value={priority.value}>
-                      {priority.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    name="priority"
+                    value={formData.priority}
+                    onChange={handleChange}
+                    className="w-full appearance-none px-4 py-2 pr-10 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F] bg-white"
+                    style={{ fontSize: '16px', letterSpacing: '0.16px' }}
+                  >
+                    {TASK_PRIORITIES.map((priority) => (
+                      <option key={priority.value} value={priority.value}>
+                        {priority.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronIcon />
+                </div>
               </div>
             </div>
 
@@ -246,42 +287,39 @@ export default function TaskModal({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  <span className="flex items-center gap-1.5">
-                    <Calendar size={14} />
-                    Due Date
-                  </span>
+                  Due Date
                 </label>
                 <input
                   type="date"
                   name="due_date"
                   value={formData.due_date}
                   onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F]"
+                  className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F]"
                   style={{ fontSize: '16px', letterSpacing: '0.16px' }}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  <span className="flex items-center gap-1.5">
-                    <User size={14} />
-                    Assign To
-                  </span>
+                  Assign To
                 </label>
-                <select
-                  name="assigned_to"
-                  value={formData.assigned_to}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F] bg-white"
-                  style={{ fontSize: '16px', letterSpacing: '0.16px' }}
-                >
-                  <option value="">Unassigned</option>
-                  {teamMembers?.map((member) => (
-                    <option key={member.id} value={member.id}>
-                      {member.full_name}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    name="assigned_to"
+                    value={formData.assigned_to}
+                    onChange={handleChange}
+                    className="w-full appearance-none px-4 py-2 pr-10 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F] bg-white"
+                    style={{ fontSize: '16px', letterSpacing: '0.16px' }}
+                  >
+                    <option value="">Unassigned</option>
+                    {teamMembers?.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.full_name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronIcon />
+                </div>
               </div>
             </div>
           </div>
@@ -291,16 +329,24 @@ export default function TaskModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
+              className="px-5 py-2.5 text-sm font-medium rounded-xl transition-colors"
+              style={{ color: '#111111', border: '1px solid #111111', backgroundColor: 'transparent' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#111111'
+                e.currentTarget.style.color = '#FFFFFF'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'transparent'
+                e.currentTarget.style.color = '#111111'
+              }}
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-[#1D1D1F] hover:bg-[#1D1D1F]/90 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-5 py-2.5 text-sm font-medium text-white bg-[#1D1D1F] hover:bg-[#1D1D1F]/90 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isEditing ? <Edit size={16} /> : <Add size={16} />}
               {isSubmitting ? 'Saving...' : isEditing ? 'Save Changes' : 'Add Task'}
             </button>
           </div>
@@ -308,4 +354,13 @@ export default function TaskModal({
       </div>
     </div>
   );
+}
+
+// Positioned chevron for appearance-none selects
+function ChevronIcon() {
+  return (
+    <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center">
+      <ChevronDown size={16} className="text-gray-500" />
+    </div>
+  )
 }

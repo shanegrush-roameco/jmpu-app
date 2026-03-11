@@ -7,7 +7,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import NotificationsPanel from './NotificationsPanel'
 import { useNotifications } from '../hooks/useNotifications'
-import { useCurrentProfile } from '../hooks/useCurrentProfile'
+import { useCurrentProfile } from '../hooks/useProfiles'
 import { usePermissions } from '../hooks/usePermissions'
 import { 
   Home, 
