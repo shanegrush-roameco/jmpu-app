@@ -11,7 +11,6 @@ import {
   Checkmark, 
   Analytics,
   TaskComplete,
-  Finance,
   License,
   Calendar,
   Renew
@@ -180,14 +179,15 @@ export default function AISummaryModal({
   onClose, 
   project,
   tasks = [],
-  aiProvider = AI_PROVIDER, // Can override per-instance if needed
+  aiProvider = AI_PROVIDER,
+  showFinancials = false,
 }) {
   const { generateSummary, clearSummary, copyToClipboard, isGenerating, summary, error } = useAISummary();
   
   // Options state
   const [options, setOptions] = useState({
     includeTasks: true,
-    includeFinancials: true,
+    includeFinancials: false,
     includePermits: true,
     includeTimeline: true,
   });
@@ -255,7 +255,7 @@ export default function AISummaryModal({
             <div>
               <h2 className="text-lg font-semibold text-[#1D1D1F]">AI Summary</h2>
               <p className="text-sm text-gray-500">
-                {project?.project_number || project?.id || 'Project'}
+                {project?.project_number || project?.summary_scope || 'Project'}
               </p>
             </div>
           </div>
@@ -283,12 +283,14 @@ export default function AISummaryModal({
                     checked={options.includeTasks}
                     onChange={() => toggleOption('includeTasks')}
                   />
-                  <OptionToggle
-                    icon={<Finance size={18} />}
-                    label="Financial Status"
-                    checked={options.includeFinancials}
-                    onChange={() => toggleOption('includeFinancials')}
-                  />
+                  {showFinancials && (
+                    <OptionToggle
+                      icon={<Analytics size={18} />}
+                      label="Financial Status"
+                      checked={options.includeFinancials}
+                      onChange={() => toggleOption('includeFinancials')}
+                    />
+                  )}
                   <OptionToggle
                     icon={<License size={18} />}
                     label="Permits"
