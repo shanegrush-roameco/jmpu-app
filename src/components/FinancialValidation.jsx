@@ -171,7 +171,7 @@ function ComparisonRow({ label, appValue, qbValue, variance }) {
           {formatCurrency(qbValue)}
         </span>
       </div>
-      <div className="w-36 flex justify-end">
+      <div className="w-48 flex justify-end">
         <VarianceIndicator variance={variance} />
       </div>
     </div>
@@ -607,7 +607,7 @@ export default function FinancialValidation({ projectId, userRole }) {
                 <div className="w-28 text-right">
                   <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">QuickBooks</span>
                 </div>
-                <div className="w-36 text-right">
+                <div className="w-48 text-right">
                   <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Status</span>
                 </div>
               </div>

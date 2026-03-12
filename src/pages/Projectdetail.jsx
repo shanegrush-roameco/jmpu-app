@@ -7,6 +7,7 @@ import { MessagesTab } from '../components/messages'
 import FinancialValidation from '../components/FinancialValidation'
 import { supabase } from '../lib/supabase'
 import { useTasks, updateTask } from '../hooks/useTasks'
+import { useQuickBooksInvoices } from '../hooks/useQuickBooks'
 // Mock project data
 const projectData = {
   id: '1283614-1',
@@ -389,6 +390,11 @@ function ProjectDetail({ user }) {
     refetchTasks()
   }, [refetchTasks])
 
+  // QB Invoices for this project
+  const { invoices, loading: invoicesLoading } = useQuickBooksInvoices({ projectId })
+  const [invoiceSearch, setInvoiceSearch] = useState('')
+  const [invoiceFilter, setInvoiceFilter] = useState('All')
+
   return (
     <GlobalNav user={user} activeNav="projects">
           {/* Project Header */}
@@ -592,144 +598,112 @@ function ProjectDetail({ user }) {
           </div>
 
           {/* Financial Summary Cards - Only shown when Financials tab is selected */}
-          {activeTab === 'financials' && (
+          {activeTab === 'financials' && (() => {
+            const totalBudget = invoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0)
+            const paidInvoices = invoices.filter(inv => inv.status?.toLowerCase() === 'paid')
+            const unpaidInvoices = invoices.filter(inv => inv.status?.toLowerCase() !== 'paid')
+            const budgetAvailable = totalBudget - paidInvoices.reduce((sum, inv) => sum + (inv.total_amount || 0), 0)
+            const completedTaskCount = tasks.filter(t => !t.is_archived && (t.status === 'completed' || completedTaskIds.has(t.id))).length
+            const totalTaskCount = tasks.filter(t => !t.is_archived).length
+            const scopePct = totalTaskCount > 0 ? Math.round((completedTaskCount / totalTaskCount) * 100) : 0
+            return (
             <div className="mb-6 -mr-4 lg:mr-0">
               <div className="flex lg:grid lg:grid-cols-5 gap-4 overflow-x-auto snap-x snap-mandatory pr-4 lg:pr-0">
                 {/* Total Budget */}
-                <div 
-                  className="bg-white p-5 relative flex-shrink-0 min-w-[200px] lg:min-w-0 snap-start"
-                  style={{
-                    borderRadius: '16px',
-                    boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
-                  }}
-                >
+                <div className="bg-white p-5 relative flex-shrink-0 min-w-[200px] lg:min-w-0 snap-start" style={{ borderRadius: '16px', boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)' }}>
                   <p className="text-sm mb-1" style={{ color: '#1D1D1F' }}>Total Budget</p>
                   <div className="flex items-baseline gap-1.5 mb-2">
                     <span className="text-3xl font-semibold" style={{ color: '#1D1D1F' }}>
-                      ${(projectData.financials.summary.totalBudget / 1000).toFixed(0)}k
+                      {invoicesLoading ? '...' : `$${(totalBudget / 1000).toFixed(0)}k`}
                     </span>
                   </div>
-                  {/* Progress bar */}
                   <div className="w-full h-1.5 bg-gray-100 rounded-full mb-2 overflow-hidden flex">
-                    <div className="h-full" style={{ width: '70%', backgroundColor: '#22C55E' }} />
-                    <div className="h-full" style={{ width: '30%', backgroundColor: '#3B82F6' }} />
+                    <div className="h-full" style={{ width: totalBudget > 0 ? `${Math.round((totalBudget - budgetAvailable) / totalBudget * 100)}%` : '0%', backgroundColor: '#22C55E' }} />
+                    <div className="h-full" style={{ width: totalBudget > 0 ? `${Math.round(budgetAvailable / totalBudget * 100)}%` : '100%', backgroundColor: '#3B82F6' }} />
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-xs text-gray-500 truncate pr-2">70% Allocated • 30% Remaining</p>
+                    <p className="text-xs text-gray-500 truncate pr-2">
+                      {totalBudget > 0 ? `${Math.round((totalBudget - budgetAvailable) / totalBudget * 100)}% Paid · ${Math.round(budgetAvailable / totalBudget * 100)}% Remaining` : 'No invoices'}
+                    </p>
                     <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   </div>
                 </div>
 
                 {/* Budget Available */}
-                <div 
-                  className="bg-white p-5 relative flex-shrink-0 min-w-[200px] lg:min-w-0 snap-start"
-                  style={{
-                    borderRadius: '16px',
-                    boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
-                  }}
-                >
+                <div className="bg-white p-5 relative flex-shrink-0 min-w-[200px] lg:min-w-0 snap-start" style={{ borderRadius: '16px', boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)' }}>
                   <div className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#22C55E' }} />
                   <p className="text-sm mb-1" style={{ color: '#1D1D1F' }}>Budget Available</p>
                   <div className="flex items-baseline gap-1.5 mb-2">
                     <span className="text-3xl font-semibold" style={{ color: '#1D1D1F' }}>
-                      ${(projectData.financials.summary.budgetAvailable / 1000).toFixed(0)}k
+                      {invoicesLoading ? '...' : `$${(budgetAvailable / 1000).toFixed(0)}k`}
                     </span>
                   </div>
-                  {/* Progress bar */}
                   <div className="w-full h-1.5 bg-gray-100 rounded-full mb-2 overflow-hidden flex">
-                    <div className="h-full" style={{ width: '70%', backgroundColor: '#22C55E' }} />
+                    <div className="h-full" style={{ width: totalBudget > 0 ? `${Math.round(budgetAvailable / totalBudget * 100)}%` : '0%', backgroundColor: '#22C55E' }} />
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-xs text-gray-500 truncate pr-2">View breakdown</p>
+                    <p className="text-xs text-gray-500 truncate pr-2">Unpaid balance</p>
                     <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   </div>
                 </div>
 
                 {/* Draws Out */}
-                <div 
-                  className="bg-white p-5 relative flex-shrink-0 min-w-[200px] lg:min-w-0 snap-start"
-                  style={{
-                    borderRadius: '16px',
-                    boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
-                  }}
-                >
+                <div className="bg-white p-5 relative flex-shrink-0 min-w-[200px] lg:min-w-0 snap-start" style={{ borderRadius: '16px', boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)' }}>
                   <div className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#EAB308' }} />
                   <p className="text-sm mb-1" style={{ color: '#1D1D1F' }}>Draws Out</p>
                   <div className="flex items-baseline gap-1.5 mb-2">
                     <span className="text-3xl font-semibold" style={{ color: '#1D1D1F' }}>
-                      {projectData.financials.summary.drawsOut}
+                      {invoicesLoading ? '...' : unpaidInvoices.length}
                     </span>
-                    <span className="text-base font-bold" style={{ color: '#919191' }}>
-                      Projects
-                    </span>
+                    <span className="text-base font-bold" style={{ color: '#919191' }}>Invoices</span>
                   </div>
-                  {/* Progress bar */}
                   <div className="w-full h-1.5 bg-gray-100 rounded-full mb-2 overflow-hidden flex">
-                    <div className="h-full" style={{ width: '43%', backgroundColor: '#EAB308' }} />
+                    <div className="h-full" style={{ width: invoices.length > 0 ? `${Math.round(unpaidInvoices.length / invoices.length * 100)}%` : '0%', backgroundColor: '#EAB308' }} />
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-xs text-gray-500 truncate pr-2">View</p>
+                    <p className="text-xs text-gray-500 truncate pr-2">Awaiting payment</p>
                     <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   </div>
                 </div>
 
                 {/* Draw Completed */}
-                <div 
-                  className="bg-white p-5 relative flex-shrink-0 min-w-[200px] lg:min-w-0 snap-start"
-                  style={{
-                    borderRadius: '16px',
-                    boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
-                  }}
-                >
+                <div className="bg-white p-5 relative flex-shrink-0 min-w-[200px] lg:min-w-0 snap-start" style={{ borderRadius: '16px', boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)' }}>
                   <div className="absolute top-5 right-5 w-2.5 h-2.5 rounded-full" style={{ backgroundColor: '#3B82F6' }} />
                   <p className="text-sm mb-1" style={{ color: '#1D1D1F' }}>Draw Completed</p>
                   <div className="flex items-baseline gap-1.5 mb-2">
                     <span className="text-3xl font-semibold" style={{ color: '#1D1D1F' }}>
-                      {projectData.financials.summary.drawCompleted}
+                      {invoicesLoading ? '...' : paidInvoices.length}
                     </span>
-                    <span className="text-base font-bold" style={{ color: '#919191' }}>
-                      Projects
-                    </span>
+                    <span className="text-base font-bold" style={{ color: '#919191' }}>Invoices</span>
                   </div>
-                  {/* Progress bar */}
                   <div className="w-full h-1.5 bg-gray-100 rounded-full mb-2 overflow-hidden flex">
-                    <div className="h-full" style={{ width: '57%', backgroundColor: '#3B82F6' }} />
+                    <div className="h-full" style={{ width: invoices.length > 0 ? `${Math.round(paidInvoices.length / invoices.length * 100)}%` : '0%', backgroundColor: '#3B82F6' }} />
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-xs text-gray-500 truncate pr-2">↑ 33% from last month</p>
+                    <p className="text-xs text-gray-500 truncate pr-2">Paid invoices</p>
                     <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   </div>
                 </div>
 
                 {/* Scope */}
-                <div 
-                  className="bg-white p-5 relative flex-shrink-0 min-w-[200px] lg:min-w-0 snap-start"
-                  style={{
-                    borderRadius: '16px',
-                    boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)'
-                  }}
-                >
+                <div className="bg-white p-5 relative flex-shrink-0 min-w-[200px] lg:min-w-0 snap-start" style={{ borderRadius: '16px', boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)' }}>
                   <p className="text-sm mb-1" style={{ color: '#1D1D1F' }}>Scope</p>
                   <div className="flex items-baseline gap-1.5 mb-2">
-                    <span className="text-3xl font-semibold" style={{ color: '#1D1D1F' }}>
-                      {projectData.financials.summary.scopeComplete}%
-                    </span>
-                    <span className="text-base font-bold" style={{ color: '#22C55E' }}>
-                      Complete
-                    </span>
+                    <span className="text-3xl font-semibold" style={{ color: '#1D1D1F' }}>{scopePct}%</span>
+                    <span className="text-base font-bold" style={{ color: '#22C55E' }}>Complete</span>
                   </div>
-                  {/* Progress bar */}
                   <div className="w-full h-1.5 bg-gray-100 rounded-full mb-2 overflow-hidden flex">
-                    <div className="h-full" style={{ width: `${projectData.financials.summary.scopeComplete}%`, backgroundColor: '#22C55E' }} />
+                    <div className="h-full" style={{ width: `${scopePct}%`, backgroundColor: '#22C55E' }} />
                   </div>
                   <div className="flex items-center justify-between">
-                    <p className="text-xs text-gray-500 truncate pr-2">View</p>
+                    <p className="text-xs text-gray-500 truncate pr-2">{completedTaskCount} of {totalTaskCount} tasks</p>
                     <ChevronRightIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
                   </div>
                 </div>
               </div>
             </div>
-          )}
+            )
+          })()}
 
           {/* Tabs + Tasks Section (connected) */}
           <div className="mb-6">
@@ -1353,27 +1327,28 @@ function ProjectDetail({ user }) {
                           <input
                             type="text"
                             placeholder="Search"
-                            className="w-full lg:w-64 pl-4 pr-10 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            value={invoiceSearch}
+                            onChange={(e) => setInvoiceSearch(e.target.value)}
+                            className="w-full lg:w-64 pl-4 pr-10 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F]"
                           />
                           <SearchIcon className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                         </div>
-                        <select 
-                          className="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
-                          style={{ 
-                            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, 
-                            backgroundPosition: 'right 0.75rem center', 
-                            backgroundRepeat: 'no-repeat', 
-                            backgroundSize: '1.25em 1.25em',
-                            paddingRight: '2.5rem'
-                          }}
-                        >
-                          <option>All</option>
-                          <option>Sent</option>
-                          <option>Awaiting Sign</option>
-                          <option>Approved</option>
-                          <option>Paid</option>
-                          <option>Overdue</option>
-                        </select>
+                        <div className="relative">
+                          <select
+                            value={invoiceFilter}
+                            onChange={(e) => setInvoiceFilter(e.target.value)}
+                            className="w-full px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F] appearance-none pr-10 bg-white"
+                            style={{ fontSize: '14px' }}
+                          >
+                            <option>All</option>
+                            <option>Paid</option>
+                            <option>Open</option>
+                            <option>Overdue</option>
+                          </select>
+                          <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                            <ChevronDownIcon className="w-4 h-4 text-gray-500" />
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -1384,93 +1359,92 @@ function ProjectDetail({ user }) {
                           <tr className="border-b border-gray-100">
                             <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice #</th>
                             <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Due</th>
-                            <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice Status</th>
-                            <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Broker Date</th>
-                            <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Broker Sign Off</th>
-                            <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                            <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
-                          {projectData.financials.invoices.map((invoice) => (
-                            <tr key={invoice.id} className="hover:bg-gray-50 transition-colors">
-                              <td className="py-3 px-4">
-                                <span className="text-sm font-medium underline cursor-pointer" style={{ color: '#1D1D1F' }}>{invoice.id}</span>
-                              </td>
-                              <td className="py-3 px-4">
-                                <span className="text-sm text-gray-600 flex items-center gap-1">
-                                  {invoice.due} <CalendarIcon className="w-4 h-4 text-gray-400" />
-                                </span>
-                              </td>
-                              <td className="py-3 px-4">
-                                <span className="text-sm" style={{ color: invoice.statusColor }}>{invoice.status}</span>
-                              </td>
-                              <td className="py-3 px-4">
-                                <span className="text-sm text-gray-600 flex items-center gap-1">
-                                  {invoice.brokerDate} <CalendarIcon className="w-4 h-4 text-gray-400" />
-                                </span>
-                              </td>
-                              <td className="py-3 px-4">
-                                <span className="text-sm text-gray-600 flex items-center gap-1">
-                                  {invoice.brokerSignOff} <CalendarIcon className="w-4 h-4 text-gray-400" />
-                                </span>
-                              </td>
-                              <td className="py-3 px-4">
-                                <span className="text-sm text-gray-900">${invoice.amount.toLocaleString()}.00</span>
-                              </td>
-                            </tr>
-                          ))}
+                          {invoicesLoading && (
+                            <tr><td colSpan={5} className="py-8 text-center text-sm text-gray-400">Loading invoices...</td></tr>
+                          )}
+                          {!invoicesLoading && (() => {
+                            const statusColor = (s) => {
+                              const v = s?.toLowerCase()
+                              if (v === 'paid') return '#22C55E'
+                              if (v === 'overdue') return '#EF4444'
+                              return '#EAB308'
+                            }
+                            const filtered = invoices.filter(inv => {
+                              const matchSearch = !invoiceSearch ||
+                                inv.invoice_number?.toLowerCase().includes(invoiceSearch.toLowerCase()) ||
+                                inv.customer_name?.toLowerCase().includes(invoiceSearch.toLowerCase())
+                              const matchFilter = invoiceFilter === 'All' ||
+                                inv.status?.toLowerCase() === invoiceFilter.toLowerCase()
+                              return matchSearch && matchFilter
+                            })
+                            if (filtered.length === 0) return (
+                              <tr><td colSpan={5} className="py-8 text-center text-sm text-gray-400">No invoices found.</td></tr>
+                            )
+                            return filtered.map((inv) => (
+                              <tr key={inv.id} className="hover:bg-gray-50 transition-colors">
+                                <td className="py-3 px-4">
+                                  <span className="text-sm font-medium underline cursor-pointer" style={{ color: '#1D1D1F' }}>
+                                    {inv.invoice_number || inv.external_doc_number || '—'}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4">
+                                  <span className="text-sm text-gray-600 flex items-center gap-1">
+                                    {inv.due_date ? new Date(inv.due_date).toLocaleDateString() : '—'}
+                                    <CalendarIcon className="w-4 h-4 text-gray-400" />
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4">
+                                  <span className="text-sm font-medium" style={{ color: statusColor(inv.status) }}>
+                                    {inv.status ? inv.status.charAt(0).toUpperCase() + inv.status.slice(1).toLowerCase() : '—'}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-4">
+                                  <span className="text-sm text-gray-600">{inv.customer_name || '—'}</span>
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                  <span className="text-sm text-gray-900">
+                                    ${(inv.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))
+                          })()}
                         </tbody>
                       </table>
                     </div>
 
                     {/* Invoices List - Mobile */}
                     <div className="lg:hidden divide-y divide-gray-100">
-                      {projectData.financials.invoices.map((invoice) => (
-                        <div 
-                          key={invoice.id}
-                          className="flex items-center justify-between py-3"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="w-5 h-5 rounded-full border-2 border-gray-300" />
-                            <span className="text-sm font-medium" style={{ color: '#1D1D1F' }}>{invoice.id}</span>
+                      {invoicesLoading && (
+                        <div className="py-8 text-center text-sm text-gray-400">Loading invoices...</div>
+                      )}
+                      {!invoicesLoading && invoices.map((inv) => (
+                        <div key={inv.id} className="flex items-center justify-between py-3">
+                          <div>
+                            <span className="text-sm font-medium" style={{ color: '#1D1D1F' }}>
+                              {inv.invoice_number || inv.external_doc_number || '—'}
+                            </span>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              ${(inv.total_amount || 0).toLocaleString()} · {inv.status || '—'}
+                            </p>
                           </div>
                           <ChevronRightIcon className="w-5 h-5 text-gray-400" />
                         </div>
                       ))}
                     </div>
 
-                    {/* Pagination */}
-                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
-                      <span className="text-sm text-gray-500">1 - 8 of 40</span>
-                      <div className="flex items-center gap-2">
-                        <select 
-                          className="px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none"
-                          style={{ 
-                            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, 
-                            backgroundPosition: 'right 0.25rem center', 
-                            backgroundRepeat: 'no-repeat', 
-                            backgroundSize: '1em 1em',
-                            paddingRight: '1.5rem',
-                            appearance: 'none'
-                          }}
-                        >
-                          <option>1</option>
-                          <option>2</option>
-                          <option>3</option>
-                          <option>4</option>
-                          <option>5</option>
-                        </select>
-                        <span className="text-sm text-gray-500">of 5 pages</span>
-                        <div className="flex items-center gap-1 ml-2">
-                          <button className="p-1 hover:bg-gray-100 rounded transition-colors">
-                            <ChevronLeftIcon className="w-4 h-4 text-gray-400" />
-                          </button>
-                          <button className="p-1 hover:bg-gray-100 rounded transition-colors">
-                            <ChevronRightIcon className="w-4 h-4 text-gray-400" />
-                          </button>
-                        </div>
+                    {/* Row count */}
+                    {!invoicesLoading && invoices.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-gray-100">
+                        <span className="text-sm text-gray-500">{invoices.length} invoice{invoices.length !== 1 ? 's' : ''}</span>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               )}

@@ -195,13 +195,9 @@ export async function createProject(projectData) {
     .insert({
       ...projectData,
       created_by: user?.id,
+      is_archived: false,
     })
-    .select(`
-      *,
-      client:client_id(id, full_name, email),
-      project_manager:project_manager_id(id, full_name, email),
-      company:company_id(id, name)
-    `)
+    .select('*')
     .single();
 
   if (error) throw error;
@@ -219,12 +215,7 @@ export async function updateProject(projectId, updates) {
     .from('projects')
     .update(updates)
     .eq('id', projectId)
-    .select(`
-      *,
-      client:client_id(id, full_name, email),
-      project_manager:project_manager_id(id, full_name, email),
-      company:company_id(id, name)
-    `)
+    .select('*')
     .single();
 
   if (error) throw error;
