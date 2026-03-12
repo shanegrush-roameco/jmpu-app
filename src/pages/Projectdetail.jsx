@@ -8,7 +8,7 @@ import FinancialValidation from '../components/FinancialValidation'
 import { supabase } from '../lib/supabase'
 import { useTasks, updateTask } from '../hooks/useTasks'
 import { useQuickBooksInvoices } from '../hooks/useQuickBooks'
-import { ChevronDown } from '@carbon/icons-react'
+import { ChevronDown, Close } from '@carbon/icons-react'
 import AddPermitModal from '../components/modals/AddPermitModal'
 // Mock project data
 const projectData = {
@@ -24,8 +24,9 @@ const projectData = {
     { id: 3, name: 'Scheduling', status: 'complete', color: '#22C55E' },
     { id: 4, name: 'Work in Progress', status: 'current', color: '#22C55E', note: 'OH' },
     { id: 5, name: 'Sent For QC', status: 'pending', color: '#E5E7EB' },
-    { id: 6, name: 'Pending Broker', status: 'pending', color: '#E5E7EB' },
+    { id: 6, name: 'Sign-off', status: 'pending', color: '#E5E7EB' },
     { id: 7, name: 'Complete', status: 'pending', color: '#E5E7EB' },
+    { id: 8, name: 'Invoicing', status: 'pending', color: '#E5E7EB' },
   ],
   phaseTooltip: {
     title: 'On Hold',
@@ -60,7 +61,7 @@ const projectData = {
       { name: 'Work in Progress', start: 2.2, duration: 2, row: 3, color: '#DCFCE7' },
       { name: 'On Hold', start: 2.8, duration: 0.6, row: 4, color: '#FEE2E2', isMarker: true },
       { name: 'Sent For QC', start: 4, duration: 1, row: 5, color: '#E5E7EB' },
-      { name: 'Pending Broker', start: 5, duration: 1, row: 6, color: '#E5E7EB' },
+      { name: 'Sign-off', start: 5, duration: 1, row: 6, color: '#E5E7EB' },
     ]
   },
   customer: {
@@ -410,12 +411,88 @@ function ProjectDetail({ user }) {
     fetchContacts()
   }, [projectId])
 
+  // On Hold toggle
+  const handleOnHoldToggle = async () => {
+    if (!project) return
+    if (project.is_on_hold) {
+      // Remove hold immediately
+      setOnHoldSaving(true)
+      const { data } = await supabase
+        .from('projects')
+        .update({ is_on_hold: false, on_hold_note: null })
+        .eq('id', projectId)
+        .select()
+        .single()
+      if (data) setProject(data)
+      setOnHoldSaving(false)
+    } else {
+      // Open modal to collect note
+      setOnHoldNote('')
+      setOnHoldModalOpen(true)
+    }
+  }
+
+  const handleOnHoldConfirm = async () => {
+    if (!onHoldNote.trim()) return
+    setOnHoldSaving(true)
+    const { data } = await supabase
+      .from('projects')
+      .update({ is_on_hold: true, on_hold_note: onHoldNote.trim() })
+      .eq('id', projectId)
+      .select()
+      .single()
+    if (data) setProject(data)
+    setOnHoldModalOpen(false)
+    setOnHoldNote('')
+    setOnHoldSaving(false)
+  }
+
+  // Blocked toggle
+  const handleBlockedToggle = async () => {
+    if (!project) return
+    if (project.is_blocked) {
+      setBlockedSaving(true)
+      const { data } = await supabase
+        .from('projects')
+        .update({ is_blocked: false, blocked_task_id: null })
+        .eq('id', projectId)
+        .select()
+        .single()
+      if (data) setProject(data)
+      setBlockedSaving(false)
+    } else {
+      setBlockedTaskId('')
+      setBlockedModalOpen(true)
+    }
+  }
+
+  const handleBlockedConfirm = async () => {
+    if (!blockedTaskId) return
+    setBlockedSaving(true)
+    const { data } = await supabase
+      .from('projects')
+      .update({ is_blocked: true, blocked_task_id: blockedTaskId })
+      .eq('id', projectId)
+      .select()
+      .single()
+    if (data) setProject(data)
+    setBlockedModalOpen(false)
+    setBlockedTaskId('')
+    setBlockedSaving(false)
+  }
+
   // QB Invoices for this project
   const { invoices, loading: invoicesLoading } = useQuickBooksInvoices({ projectId })
   const [invoiceSearch, setInvoiceSearch] = useState('')
   const [invoiceFilter, setInvoiceFilter] = useState('All')
 
   const [addPermitModalOpen, setAddPermitModalOpen] = useState(false)
+  const [onHoldModalOpen, setOnHoldModalOpen] = useState(false)
+  const [onHoldNote, setOnHoldNote] = useState('')
+  const [onHoldSaving, setOnHoldSaving] = useState(false)
+  const [blockedModalOpen, setBlockedModalOpen] = useState(false)
+  const [blockedTaskId, setBlockedTaskId] = useState('')
+  const [blockedSaving, setBlockedSaving] = useState(false)
 
   // Files for this project
   const [projectFiles, setProjectFiles] = useState([])
@@ -561,34 +638,88 @@ function ProjectDetail({ user }) {
             className="bg-white p-6 mb-6"
             style={{ borderRadius: '16px', boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)' }}
           >
-            <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-4">
-              <div>
-                <h3 className="text-base font-semibold mb-2" style={{ color: '#1D1D1F' }}>Project Phases</h3>
-                {/* Mobile: Simple status */}
-                <div className="lg:hidden">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm text-gray-600">Status: {project?.status || ''}</span>
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: project?.status_color || '#6B7280' }} />
-                  </div>
-                  <p className="text-sm text-gray-500">Estimated Completion: {project?.estimated_completion_date || ''}</p>
-                </div>
+            {/* Phase Card Header */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <h3 className="text-base font-semibold" style={{ color: '#1D1D1F' }}>Project Phases</h3>
+                {/* Status pill */}
+                {project?.status && (
+                  <span
+                    className="px-2.5 py-0.5 rounded-full text-xs font-medium capitalize"
+                    style={{
+                      backgroundColor:
+                        project.status === 'active' ? '#DCFCE7' :
+                        project.status === 'completed' ? '#DCFCE7' :
+                        project.status === 'cancelled' ? '#FEE2E2' : '#F3F4F6',
+                      color:
+                        project.status === 'active' ? '#15803D' :
+                        project.status === 'completed' ? '#15803D' :
+                        project.status === 'cancelled' ? '#B91C1C' : '#6B7280',
+                    }}
+                  >
+                    {project.status === 'completed' ? 'Complete' : project.status.replace('_', ' ')}
+                  </span>
+                )}
               </div>
-              
-              {/* Desktop: Status info */}
-              <div className="hidden lg:flex items-center gap-6">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">Status: {project?.status || ''}</span>
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: project?.status_color || '#6B7280' }} />
-                </div>
-                <span className="text-sm text-gray-600">Estimated Completion: {project?.estimated_completion_date || ''}</span>
+              <div className="flex items-center gap-2">
+                {/* Blocked toggle */}
+                <button
+                  onClick={handleBlockedToggle}
+                  disabled={blockedSaving}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+                  style={{
+                    backgroundColor: project?.is_blocked ? '#FEE2E2' : 'transparent',
+                    color: project?.is_blocked ? '#B91C1C' : '#6B7280',
+                    border: project?.is_blocked ? '1px solid #FECACA' : '1px solid #E5E7EB',
+                  }}
+                  onMouseEnter={(e) => { if (!project?.is_blocked) e.currentTarget.style.backgroundColor = '#F9FAFB' }}
+                  onMouseLeave={(e) => { if (!project?.is_blocked) e.currentTarget.style.backgroundColor = 'transparent' }}
+                >
+                  {project?.is_blocked ? 'Blocked -- Remove' : 'Mark Blocked'}
+                </button>
+                {/* On Hold toggle */}
+                <button
+                  onClick={handleOnHoldToggle}
+                  disabled={onHoldSaving}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+                  style={{
+                    backgroundColor: project?.is_on_hold ? '#FEF3C7' : 'transparent',
+                    color: project?.is_on_hold ? '#92400E' : '#6B7280',
+                    border: project?.is_on_hold ? '1px solid #FDE68A' : '1px solid #E5E7EB',
+                  }}
+                  onMouseEnter={(e) => { if (!project?.is_on_hold) e.currentTarget.style.backgroundColor = '#F9FAFB' }}
+                  onMouseLeave={(e) => { if (!project?.is_on_hold) e.currentTarget.style.backgroundColor = 'transparent' }}
+                >
+                  {project?.is_on_hold ? 'On Hold -- Remove' : 'Place on Hold'}
+                </button>
               </div>
             </div>
+
+            {/* Blocked Banner */}
+            {project?.is_blocked && (
+              <div className="flex items-start gap-2 mb-3 px-4 py-3 rounded-xl" style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA' }}>
+                <span className="text-sm font-medium" style={{ color: '#B91C1C' }}>Blocked by:</span>
+                <span className="text-sm" style={{ color: '#B91C1C' }}>
+                  {tasks.find(t => t.id === project.blocked_task_id)?.title || 'a task'}
+                </span>
+              </div>
+            )}
+
+            {/* On Hold Banner */}
+            {project?.is_on_hold && (
+              <div className="flex items-start gap-2 mb-3 px-4 py-3 rounded-xl" style={{ backgroundColor: '#FFFBEB', border: '1px solid #FDE68A' }}>
+                <span className="text-sm font-medium" style={{ color: '#92400E' }}>On Hold:</span>
+                <span className="text-sm" style={{ color: '#92400E' }}>{project.on_hold_note}</span>
+              </div>
+            )}
 
             {/* Phase of Project Label */}
             <div className="mb-4">
               <div className="flex items-baseline gap-2">
-                <span className="text-3xl font-bold" style={{ color: '#1D1D1F' }}>AD</span>
-                <span className="text-sm text-gray-500">Phase of Project</span>
+                <span className="text-sm text-gray-500">Phase:</span>
+                <span className="text-sm font-semibold" style={{ color: '#1D1D1F' }}>
+                  {projectData.phases.find(p => p.status === 'current')?.name || 'Not Started'}
+                </span>
               </div>
             </div>
 
@@ -597,30 +728,52 @@ function ProjectDetail({ user }) {
               <div className="relative">
                 {/* Progress Line */}
                 <div className="absolute top-3 left-0 right-0 h-1 bg-gray-200 rounded-full" />
-                <div className="absolute top-3 left-0 h-1 bg-green-500 rounded-full" style={{ width: '45%' }} />
+                <div
+                  className="absolute top-3 left-0 h-1 rounded-full"
+                  style={{
+                    width: '45%',
+                    backgroundColor: project?.is_blocked ? '#EF4444' : project?.is_on_hold ? '#EAB308' : '#22C55E'
+                  }}
+                />
                 
                 {/* Phase Dots */}
                 <div className="relative flex justify-between">
                   {projectData.phases.map((phase, index) => (
                     <div key={phase.id} className="flex flex-col items-center" style={{ width: `${100 / projectData.phases.length}%` }}>
-                      <div 
-                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center z-10 ${
-                          phase.status === 'complete' ? 'bg-green-500 border-green-500' :
-                          phase.status === 'current' ? 'bg-green-500 border-green-500' :
-                          'bg-white border-gray-300'
-                        }`}
+                      <div
+                        className="w-6 h-6 rounded-full border-2 flex items-center justify-center z-10"
+                        style={{
+                          backgroundColor:
+                            phase.status === 'complete' ? '#22C55E' :
+                            phase.status === 'current' && project?.is_blocked ? '#EF4444' :
+                            phase.status === 'current' ? '#22C55E' :
+                            '#FFFFFF',
+                          borderColor:
+                            phase.status === 'complete' ? '#22C55E' :
+                            phase.status === 'current' && project?.is_blocked ? '#EF4444' :
+                            phase.status === 'current' && project?.is_on_hold ? '#EAB308' :
+                            phase.status === 'current' ? '#22C55E' :
+                            '#D1D5DB',
+                          borderWidth: phase.status === 'current' && project?.is_on_hold && !project?.is_blocked ? '3px' : '2px',
+                        }}
                       >
                         {phase.status === 'complete' && (
                           <CheckIcon className="w-3 h-3 text-white" />
                         )}
                         {phase.status === 'current' && (
-                          <div className="w-2 h-2 bg-white rounded-full" />
+                          <div
+                            className="w-2 h-2 rounded-full"
+                            style={{ backgroundColor: project?.is_blocked ? '#FEE2E2' : '#FFFFFF' }}
+                          />
                         )}
                       </div>
                       <span className={`text-xs mt-2 text-center ${
                         phase.status === 'pending' ? 'text-gray-400' : 'text-gray-700'
                       }`}>
-                        {phase.name} {phase.note && <span className="text-yellow-600">{phase.note}</span>}
+                        {phase.name}{' '}
+                        {phase.status === 'current' && project?.is_on_hold && (
+                          <span className="text-yellow-600">OH</span>
+                        )}
                       </span>
                     </div>
                   ))}
@@ -3118,6 +3271,119 @@ function ProjectDetail({ user }) {
           setPermits(data || [])
         }}
       />
+      {/* Blocked Modal */}
+      {blockedModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setBlockedModalOpen(false)} />
+          <div
+            className="relative bg-white rounded-2xl w-full max-w-sm overflow-hidden"
+            style={{ boxShadow: '2px 4px 12px rgba(0,0,0,0.08)' }}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="text-base font-semibold" style={{ color: '#1D1D1F' }}>Mark as Blocked</h2>
+              <button onClick={() => setBlockedModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <Close size={18} className="text-gray-500" />
+              </button>
+            </div>
+            <div className="p-5">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Blocking Task <span style={{ color: '#E8500A' }}>*</span>
+              </label>
+              <div className="relative">
+                <select
+                  value={blockedTaskId}
+                  onChange={(e) => setBlockedTaskId(e.target.value)}
+                  className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F] appearance-none bg-white pr-10"
+                  style={{ fontSize: '16px', letterSpacing: '0.16px' }}
+                  autoFocus
+                >
+                  <option value="">Select a task...</option>
+                  {tasks
+                    .filter(t => !t.is_archived && t.status !== 'completed')
+                    .map(t => (
+                      <option key={t.id} value={t.id}>{t.title}</option>
+                    ))
+                  }
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center">
+                  <ChevronDown size={16} className="text-gray-500" />
+                </div>
+              </div>
+              <p className="mt-2 text-xs text-gray-400">This project cannot move forward until this task is resolved.</p>
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50">
+              <button
+                onClick={() => setBlockedModalOpen(false)}
+                className="px-5 py-2 text-sm font-medium rounded-xl transition-colors"
+                style={{ color: '#111111', border: '1px solid #111111', backgroundColor: 'transparent' }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#111111'; e.currentTarget.style.color = '#fff' }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#111111' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleBlockedConfirm}
+                disabled={!blockedTaskId || blockedSaving}
+                className="px-5 py-2 text-sm font-medium text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ backgroundColor: '#1D1D1F' }}
+              >
+                {blockedSaving ? 'Saving...' : 'Mark Blocked'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* On Hold Modal */}
+      {onHoldModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setOnHoldModalOpen(false)} />
+          <div
+            className="relative bg-white rounded-2xl w-full max-w-sm overflow-hidden"
+            style={{ boxShadow: '2px 4px 12px rgba(0,0,0,0.08)' }}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="text-base font-semibold" style={{ color: '#1D1D1F' }}>Place on Hold</h2>
+              <button onClick={() => setOnHoldModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <Close size={18} className="text-gray-500" />
+              </button>
+            </div>
+            <div className="p-5">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Reason <span style={{ color: '#E8500A' }}>*</span>
+              </label>
+              <textarea
+                value={onHoldNote}
+                onChange={(e) => setOnHoldNote(e.target.value)}
+                placeholder="What is blocking this project?"
+                rows={3}
+                className="w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F] resize-none"
+                style={{ fontSize: '16px', letterSpacing: '0.16px' }}
+                autoFocus
+              />
+            </div>
+            <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50">
+              <button
+                onClick={() => setOnHoldModalOpen(false)}
+                className="px-5 py-2 text-sm font-medium rounded-xl transition-colors"
+                style={{ color: '#111111', border: '1px solid #111111', backgroundColor: 'transparent' }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#111111'; e.currentTarget.style.color = '#fff' }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#111111' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleOnHoldConfirm}
+                disabled={!onHoldNote.trim() || onHoldSaving}
+                className="px-5 py-2 text-sm font-medium text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ backgroundColor: '#1D1D1F' }}
+              >
+                {onHoldSaving ? 'Saving...' : 'Place on Hold'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </GlobalNav>
   )
 }
