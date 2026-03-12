@@ -37,10 +37,8 @@ const US_STATES = [
 ];
 
 const PROJECT_STATUSES = [
-  { value: 'planning',    label: 'Planning' },
   { value: 'active',      label: 'Active' },
-  { value: 'on_hold',     label: 'On Hold' },
-  { value: 'completed',   label: 'Completed' },
+  { value: 'completed',   label: 'Complete' },
   { value: 'cancelled',   label: 'Cancelled' },
 ];
 
@@ -65,8 +63,8 @@ export default function EditProjectModal({ isOpen, onClose, onSuccess, project }
     city:          '',
     state:         'MI',
     zip_code:      '',
-    date_received: '',
-    status:        'planning',
+    start_date:    '',
+    status:        'active',
   });
 
   const [errors, setErrors]         = useState({});
@@ -82,10 +80,10 @@ export default function EditProjectModal({ isOpen, onClose, onSuccess, project }
         city:          project.city          || '',
         state:         project.state         || 'MI',
         zip_code:      project.zip_code      || '',
-        date_received: project.date_received
-          ? project.date_received.slice(0, 10)
+        start_date:    project.start_date
+          ? project.start_date.slice(0, 10)
           : '',
-        status:        project.status        || 'planning',
+        status:        project.status        || 'active',
       });
       setErrors({});
     }
@@ -130,7 +128,7 @@ export default function EditProjectModal({ isOpen, onClose, onSuccess, project }
         city:          formData.city.trim(),
         state:         formData.state,
         zip_code:      formData.zip_code.trim(),
-        date_received: formData.date_received || null,
+        start_date:    formData.start_date || null,
         status:        formData.status,
       };
       const updated = await updateProject(project.id, updates);
@@ -243,9 +241,9 @@ export default function EditProjectModal({ isOpen, onClose, onSuccess, project }
             </div>
 
             <div>
-              <label className={labelBase}>Date Received</label>
+              <label className={labelBase}>Start Date</label>
               <input
-                type="date" name="date_received" value={formData.date_received} onChange={handleChange}
+                type="date" name="start_date" value={formData.start_date} onChange={handleChange}
                 className={inputBase} style={inputStyle}
               />
             </div>

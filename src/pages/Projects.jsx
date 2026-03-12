@@ -9,6 +9,7 @@ import GlobalNav from '../components/GlobalNav'
 import CreateProjectModal from '../components/modals/CreateProjectModal'
 import AISummaryModal from '../components/modals/AISummaryModal'
 import { useProjects } from '../hooks/useProjects'
+import { useCurrentProfile } from '../hooks/useCurrentProfile'
 
 // Status configuration with colors (matching database enum values)
 const statusConfig = {
@@ -40,6 +41,9 @@ function Projects({ user }) {
   )
   const [newProjectModalOpen, setNewProjectModalOpen] = useState(false)
   const [aiSummaryModalOpen, setAiSummaryModalOpen] = useState(false)
+
+  const { profile } = useCurrentProfile()
+  const isAdmin = profile?.role === 'admin'
 
   // Fetch projects from Supabase
   const { projects, loading, error, refetch } = useProjects({
@@ -328,6 +332,7 @@ function Projects({ user }) {
           projects: projects,
         }}
         tasks={[]}
+        showFinancials={isAdmin}
       />
     </GlobalNav>
   )

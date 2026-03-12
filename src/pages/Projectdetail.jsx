@@ -7,6 +7,7 @@ import { MessagesTab } from '../components/messages'
 import FinancialValidation from '../components/FinancialValidation'
 import { supabase } from '../lib/supabase'
 import { useTasks, updateTask } from '../hooks/useTasks'
+import { useCurrentProfile } from '../hooks/useCurrentProfile'
 import { useQuickBooksInvoices } from '../hooks/useQuickBooks'
 import { ChevronDown, Close } from '@carbon/icons-react'
 import AddPermitModal from '../components/modals/AddPermitModal'
@@ -186,6 +187,9 @@ function ProjectDetail({ user }) {
   const [searchParams] = useSearchParams()
   const initialTab = searchParams.get('tab') || 'overview'
   const [activeTab, setActiveTab] = useState(initialTab)
+
+  const { profile } = useCurrentProfile()
+  const isAdmin = profile?.role === 'admin'
 
  // Scroll to top when arriving via tab param (e.g., from notification)
   useEffect(() => {
@@ -3257,6 +3261,7 @@ function ProjectDetail({ user }) {
           due_date: t.due_date,
           priority: t.priority,
         }))}
+        showFinancials={isAdmin}
       />
       <AddPermitModal
         isOpen={addPermitModalOpen}
