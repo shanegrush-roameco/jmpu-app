@@ -526,30 +526,7 @@ function ProjectDetail({ user }) {
                   Add Permit/Violation
                 </button>
               ) : activeTab === 'contractors' ? (
-                <>
-                  <button 
-                    onClick={() => setReportModalOpen(true)}
-                    className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
-                    style={{ backgroundColor: '#1D1D1F' }}
-                  >
-                    Request Draw
-                  </button>
-                  <button 
-                    onClick={() => setAddContractorModalOpen(true)}
-                    className="w-full lg:w-auto px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
-                    style={{ color: '#111111', border: '1px solid #111111' }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#111111'
-                      e.currentTarget.style.color = '#FFFFFF'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent'
-                      e.currentTarget.style.color = '#111111'
-                    }}
-                  >
-                    Add Contractor
-                  </button>
-                </>
+                null
               ) : (
                 <>
                   <button 
@@ -1850,91 +1827,6 @@ function ProjectDetail({ user }) {
                     </div>
                   </div>
 
-                  {/* Contractor Payments (Draws) Section */}
-                  <div>
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
-                      <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Contractor Payments (Draws)</h3>
-                      <select 
-                        className="w-full lg:w-auto px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
-                        style={{ 
-                          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, 
-                          backgroundPosition: 'right 0.75rem center', 
-                          backgroundRepeat: 'no-repeat', 
-                          backgroundSize: '1.25em 1.25em',
-                          paddingRight: '2.5rem'
-                        }}
-                      >
-                        <option>All</option>
-                        <option>Pending</option>
-                        <option>Approved</option>
-                      </select>
-                    </div>
-
-                    {/* Payments Table - Desktop */}
-                    <div className="hidden lg:block overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-gray-100">
-                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Date Requested</th>
-                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Contractor</th>
-                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Sent On</th>
-                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                          {projectData.contractorPayments.map((payment) => (
-                            <tr key={payment.id} className="hover:bg-gray-50 transition-colors">
-                              <td className="py-3">
-                                <span className="text-sm text-gray-600">{payment.dateRequested}</span>
-                              </td>
-                              <td className="py-3">
-                                <span className="text-sm text-blue-600 underline cursor-pointer">{payment.contractor}</span>
-                              </td>
-                              <td className="py-3">
-                                <div className="flex items-center gap-1">
-                                  <span className="text-sm" style={{ color: payment.statusColor }}>{payment.status}</span>
-                                  <ChevronDownIcon className="w-4 h-4" style={{ color: payment.statusColor }} />
-                                </div>
-                              </td>
-                              <td className="py-3">
-                                <span className="text-sm text-gray-600">${payment.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                              </td>
-                              <td className="py-3">
-                                <span className="text-sm text-gray-600">{payment.sentOn}</span>
-                              </td>
-                              <td className="py-3">
-                                <button 
-                                  onClick={() => setNotesModalOpen(true)}
-                                  className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                                >
-                                  {payment.hasNotes ? 'View Notes' : 'Add Note +'}
-                                  <NotesIcon className="w-4 h-4" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Payments List - Mobile */}
-                    <div className="lg:hidden divide-y divide-gray-100">
-                      {projectData.contractorPayments.map((payment) => (
-                        <div key={payment.id} className="py-3">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm text-blue-600 underline">{payment.contractor}</span>
-                            <span className="text-sm" style={{ color: payment.statusColor }}>{payment.status}</span>
-                          </div>
-                          <div className="flex items-center justify-between text-xs text-gray-500">
-                            <span>{payment.dateRequested}</span>
-                            <span>${payment.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               )}
               {/* Messages Tab Content */}
@@ -2094,7 +1986,7 @@ function ProjectDetail({ user }) {
                   >
                     <div className="flex items-center gap-3">
                       <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>{contractor.name}</h3>
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: contractor.statusColor }} />
+                      <div className="w-2.5 h-2.5 rounded-full bg-gray-300" />
                       <span 
                         className="px-2 py-0.5 rounded text-xs font-medium"
                         style={{ 
@@ -2133,27 +2025,30 @@ function ProjectDetail({ user }) {
 
                         {/* Action Buttons */}
                         <div className="flex flex-col gap-2 lg:items-end">
-                          <button 
-                            className="w-full lg:w-auto px-6 py-2 bg-transparent rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                            style={{ color: '#111111', border: '1px solid #E5E7EB' }}
-                          >
-                            <PhoneIcon className="w-4 h-4" />
-                            Call
-                          </button>
-                          <button 
-                            className="w-full lg:w-auto px-6 py-2 bg-transparent rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                            style={{ color: '#111111', border: '1px solid #E5E7EB' }}
-                          >
-                            <EmailIcon className="w-4 h-4" />
-                            Send Message
-                          </button>
-                          <button 
-                            className="w-full lg:w-auto px-6 py-2 bg-transparent rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                            style={{ color: '#111111', border: '1px solid #E5E7EB' }}
-                          >
-                            Lockbox Code: {contractor.lockboxCode}
-                            <LinkIcon className="w-4 h-4" />
-                          </button>
+                          {contractor.phone && (
+                            <a
+                              href={`tel:${contractor.phone}`}
+                              className="w-full lg:w-auto px-6 py-2 bg-transparent rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                              style={{ color: '#111111', border: '1px solid #E5E7EB' }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F9FAFB'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                              <PhoneIcon className="w-4 h-4" />
+                              Call
+                            </a>
+                          )}
+                          {contractor.email && (
+                            <a
+                              href={`mailto:${contractor.email}`}
+                              className="w-full lg:w-auto px-6 py-2 bg-transparent rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                              style={{ color: '#111111', border: '1px solid #E5E7EB' }}
+                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F9FAFB'}
+                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                            >
+                              <EmailIcon className="w-4 h-4" />
+                              Send Email
+                            </a>
+                          )}
                         </div>
                       </div>
                     </div>
