@@ -8,6 +8,8 @@ import FinancialValidation from '../components/FinancialValidation'
 import { supabase } from '../lib/supabase'
 import { useTasks, updateTask } from '../hooks/useTasks'
 import { useQuickBooksInvoices } from '../hooks/useQuickBooks'
+import { ChevronDown } from '@carbon/icons-react'
+import AddPermitModal from '../components/modals/AddPermitModal'
 // Mock project data
 const projectData = {
   id: '1283614-1',
@@ -314,6 +316,7 @@ function ProjectDetail({ user }) {
         if (notesModalOpen) setNotesModalOpen(false)
         if (addContractorModalOpen) setAddContractorModalOpen(false)
         if (aiSummaryModalOpen) setAiSummaryModalOpen(false)
+        if (addPermitModalOpen) setAddPermitModalOpen(false)
       }
     }
     window.addEventListener('keydown', handleEsc)
@@ -395,6 +398,59 @@ function ProjectDetail({ user }) {
   const [invoiceSearch, setInvoiceSearch] = useState('')
   const [invoiceFilter, setInvoiceFilter] = useState('All')
 
+  const [addPermitModalOpen, setAddPermitModalOpen] = useState(false)
+
+  // Files for this project
+  const [projectFiles, setProjectFiles] = useState([])
+  const [filesLoading, setFilesLoading] = useState(true)
+  const [fileSearch, setFileSearch] = useState('')
+  const [fileTypeFilter, setFileTypeFilter] = useState('All')
+  const SUPABASE_STORAGE_URL = 'https://mbwiaojxmaxsmoykdnww.supabase.co/storage/v1/object/public/project-files'
+
+  const fetchFiles = useCallback(async () => {
+    if (!projectId) return
+    const { data } = await supabase
+      .from('files')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('created_at', { ascending: false })
+    setProjectFiles(data || [])
+    setFilesLoading(false)
+  }, [projectId])
+
+  useEffect(() => { fetchFiles() }, [fetchFiles])
+
+  const getFileUrl = (filePath) => `${SUPABASE_STORAGE_URL}/${filePath}`
+
+  const handleDownload = async (file) => {
+    const url = getFileUrl(file.file_path)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = file.name
+    a.target = '_blank'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  }
+
+  // Permits for this project
+  const [permits, setPermits] = useState([])
+  const [permitsLoading, setPermitsLoading] = useState(true)
+  const [permitTypeFilter, setPermitTypeFilter] = useState('All')
+  useEffect(() => {
+    if (!projectId) return
+    const fetchPermits = async () => {
+      const { data } = await supabase
+        .from('permits')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('application_date', { ascending: false })
+      setPermits(data || [])
+      setPermitsLoading(false)
+    }
+    fetchPermits()
+  }, [projectId])
+
   return (
     <GlobalNav user={user} activeNav="projects">
           {/* Project Header */}
@@ -446,6 +502,7 @@ function ProjectDetail({ user }) {
                 </>
               ) : activeTab === 'permits' ? (
                 <button 
+                  onClick={() => setAddPermitModalOpen(true)}
                   className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
                   style={{ backgroundColor: '#1D1D1F' }}
                 >
@@ -1232,80 +1289,115 @@ function ProjectDetail({ user }) {
                           <input
                             type="text"
                             placeholder="Search"
-                            className="w-full lg:w-80 pl-4 pr-10 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            value={fileSearch}
+                            onChange={e => setFileSearch(e.target.value)}
+                            className="w-full lg:w-80 pl-4 pr-10 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F]"
+                            style={{ fontSize: '16px', letterSpacing: '0.16px' }}
                           />
                           <SearchIcon className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
                         </div>
-                        <select 
-                          className="px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
-                          style={{ 
-                            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, 
-                            backgroundPosition: 'right 0.75rem center', 
-                            backgroundRepeat: 'no-repeat', 
-                            backgroundSize: '1.25em 1.25em',
-                            paddingRight: '2.5rem'
-                          }}
-                        >
-                          <option>Photos</option>
-                          <option>Documents</option>
-                          <option>All Files</option>
-                        </select>
+                        <div className="relative">
+                          <select
+                            value={fileTypeFilter}
+                            onChange={e => setFileTypeFilter(e.target.value)}
+                            className="px-4 py-2 pr-10 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F] appearance-none bg-white"
+                            style={{ fontSize: '16px', letterSpacing: '0.16px' }}
+                          >
+                            <option value="All">All Files</option>
+                            <option value="Photos">Photos</option>
+                            <option value="Documents">Documents</option>
+                          </select>
+                          <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                            <ChevronDown size={16} className="text-gray-500" />
+                          </div>
+                        </div>
                       </div>
                     </div>
 
                     {/* File List */}
-                    <div className="divide-y divide-gray-100">
-                      {projectData.files.map((file) => (
-                        <div 
-                          key={file.id}
-                          className="py-4"
-                        >
-                          {/* Desktop Layout */}
-                          <div className="hidden lg:flex lg:items-center lg:justify-between">
-                            <div className="flex items-center gap-3">
-                              <ImageIcon className="w-5 h-5 text-gray-400" />
-                              <span className="font-medium text-sm" style={{ color: '#1D1D1F' }}>{file.name}</span>
-                              <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600">.{file.type}</span>
-                              <span className="text-sm text-gray-500">{file.project} • Uploaded by: {file.uploadedBy}</span>
-                            </div>
-                            <div className="flex items-center gap-6">
-                              <button className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                                <EyeIcon className="w-4 h-4" />
-                                Preview
-                              </button>
-                              <button className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                                <DownloadIcon className="w-4 h-4" />
-                                Download
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Mobile Layout */}
-                          <div className="lg:hidden">
-                            <div className="flex items-start gap-3 mb-2">
-                              <ImageIcon className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="font-medium text-sm" style={{ color: '#1D1D1F' }}>{file.name}</span>
-                                  <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600">.{file.type}</span>
+                    {filesLoading ? (
+                      <div className="py-12 text-center text-sm text-gray-400">Loading files...</div>
+                    ) : (() => {
+                      const filtered = projectFiles.filter(f => {
+                        const matchSearch = !fileSearch ||
+                          f.name?.toLowerCase().includes(fileSearch.toLowerCase())
+                        const ext = f.file_type?.toLowerCase() || f.name?.split('.').pop()?.toLowerCase() || ''
+                        const matchType = fileTypeFilter === 'All' ||
+                          (fileTypeFilter === 'Photos' && ['jpg','jpeg','png','heic','webp'].includes(ext)) ||
+                          (fileTypeFilter === 'Documents' && ['pdf','xls','xlsx'].includes(ext))
+                        return matchSearch && matchType
+                      })
+                      if (filtered.length === 0) return (
+                        <div className="py-12 text-center text-sm text-gray-400">No files found for this project.</div>
+                      )
+                      return (
+                        <div className="divide-y divide-gray-100">
+                          {filtered.map((file) => {
+                            const ext = file.file_type || file.name?.split('.').pop()?.toUpperCase() || 'FILE'
+                            const fileUrl = getFileUrl(file.file_path)
+                            return (
+                              <div key={file.id} className="py-4">
+                                {/* Desktop */}
+                                <div className="hidden lg:flex lg:items-center lg:justify-between">
+                                  <div className="flex items-center gap-3">
+                                    <ImageIcon className="w-5 h-5 text-gray-400" />
+                                    <span className="font-medium text-sm" style={{ color: '#1D1D1F' }}>{file.name}</span>
+                                    <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600">.{ext}</span>
+                                    {file.file_size && (
+                                      <span className="text-sm text-gray-400">
+                                        {file.file_size > 1048576
+                                          ? `${(file.file_size / 1048576).toFixed(1)} MB`
+                                          : `${Math.round(file.file_size / 1024)} KB`}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-6">
+                                    <a
+                                      href={fileUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                                    >
+                                      <EyeIcon className="w-4 h-4" />
+                                      Preview
+                                    </a>
+                                    <button
+                                      onClick={() => handleDownload(file)}
+                                      className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                                    >
+                                      <DownloadIcon className="w-4 h-4" />
+                                      Download
+                                    </button>
+                                  </div>
                                 </div>
-                                <p className="text-sm text-gray-500 mt-1">{file.project} • Uploaded by: {file.uploadedBy}</p>
+                                {/* Mobile */}
+                                <div className="lg:hidden">
+                                  <div className="flex items-start gap-3 mb-2">
+                                    <ImageIcon className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="font-medium text-sm" style={{ color: '#1D1D1F' }}>{file.name}</span>
+                                        <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600">.{ext}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-4 ml-8">
+                                    <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                                      <EyeIcon className="w-4 h-4" />
+                                      Preview
+                                    </a>
+                                    <button onClick={() => handleDownload(file)} className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors">
+                                      <DownloadIcon className="w-4 h-4" />
+                                      Download
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex items-center gap-4 ml-8">
-                              <button className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                                <EyeIcon className="w-4 h-4" />
-                                Preview
-                              </button>
-                              <button className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                                <DownloadIcon className="w-4 h-4" />
-                                Download
-                              </button>
-                            </div>
-                          </div>
+                            )
+                          })}
                         </div>
-                      ))}
-                    </div>
+                      )
+                    })()}
                   </div>
                 </div>
               )}
@@ -1450,106 +1542,146 @@ function ProjectDetail({ user }) {
               )}
 
               {/* Permits Tab Content */}
-              {activeTab === 'permits' && (
+              {activeTab === 'permits' && (() => {
+                const PERMIT_STATUS_COLOR = {
+                  not_applied: '#6B7280',
+                  pending: '#EAB308',
+                  approved: '#22C55E',
+                  denied: '#EF4444',
+                  expired: '#F97316',
+                }
+                const PERMIT_STATUS_LABEL = {
+                  not_applied: 'Not Applied',
+                  pending: 'Pending',
+                  approved: 'Approved',
+                  denied: 'Denied',
+                  expired: 'Expired',
+                }
+                const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : null
+                const uniqueTypes = ['All', ...Array.from(new Set(permits.map(p => p.permit_type).filter(Boolean)))]
+                const filteredPermits = permitTypeFilter === 'All' ? permits : permits.filter(p => p.permit_type === permitTypeFilter)
+                return (
                 <div className="p-6">
                   {/* Permits & Violations Section */}
                   <div className="mb-8">
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
                       <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Permits & Violations</h3>
-                      <select 
-                        className="w-full lg:w-auto px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
-                        style={{ 
-                          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, 
-                          backgroundPosition: 'right 0.75rem center', 
-                          backgroundRepeat: 'no-repeat', 
-                          backgroundSize: '1.25em 1.25em',
-                          paddingRight: '2.5rem'
-                        }}
-                      >
-                        <option>Permits</option>
-                        <option>Violations</option>
-                        <option>All</option>
-                      </select>
-                    </div>
-
-                    {/* Permits Table - Desktop */}
-                    <div className="hidden lg:block overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-gray-100">
-                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Permit / Violation</th>
-                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Applied For Date</th>
-                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Approved Date</th>
-                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Final Inspection</th>
-                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Pass Date</th>
-                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                          {projectData.permits.map((permit) => (
-                            <tr key={permit.id} className="hover:bg-gray-50 transition-colors">
-                              <td className="py-3">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm font-medium" style={{ color: '#1D1D1F' }}>{permit.name}</span>
-                                  <span className="px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-600">.PDF</span>
-                                </div>
-                              </td>
-                              <td className="py-3">
-                                <span className="text-sm text-gray-600">{permit.appliedDate}</span>
-                              </td>
-                              <td className="py-3">
-                                {permit.approvedDate ? (
-                                  <span className="text-sm text-green-600 underline cursor-pointer">{permit.approvedDate}</span>
-                                ) : (
-                                  <span className="text-sm text-gray-400">NA</span>
-                                )}
-                              </td>
-                              <td className="py-3">
-                                <div className="flex items-center gap-1">
-                                  <span className="text-sm" style={{ color: permit.finalInspectionColor }}>{permit.finalInspection}</span>
-                                  <ChevronDownIcon className="w-4 h-4" style={{ color: permit.finalInspectionColor }} />
-                                </div>
-                              </td>
-                              <td className="py-3">
-                                {permit.passDate ? (
-                                  <span className="text-sm text-gray-600">{permit.passDate}</span>
-                                ) : (
-                                  <span className="text-sm text-gray-400">NA</span>
-                                )}
-                              </td>
-                              <td className="py-3">
-                                <button className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                                  View Notes
-                                  <NotesIcon className="w-4 h-4" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Permits List - Mobile */}
-                    <div className="lg:hidden divide-y divide-gray-100">
-                      {projectData.permits.map((permit) => (
-                        <div 
-                          key={permit.id}
-                          className="py-4"
+                      <div className="relative w-full lg:w-auto">
+                        <select
+                          value={permitTypeFilter}
+                          onChange={e => setPermitTypeFilter(e.target.value)}
+                          className="w-full lg:w-auto px-4 py-2 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F] appearance-none bg-white"
+                          style={{ fontSize: '16px', letterSpacing: '0.16px' }}
                         >
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium" style={{ color: '#1D1D1F' }}>{permit.name}</span>
-                              <span className="px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-600">.PDF</span>
-                            </div>
-                            <span className="text-xs" style={{ color: permit.finalInspectionColor }}>{permit.finalInspection}</span>
-                          </div>
-                          <div className="flex items-center justify-between text-xs text-gray-500">
-                            <span>Applied: {permit.appliedDate}</span>
-                            {permit.approvedDate && <span className="text-green-600">Approved: {permit.approvedDate}</span>}
-                          </div>
+                          {uniqueTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
+                          <ChevronDown size={16} className="text-gray-500" />
                         </div>
-                      ))}
+                      </div>
                     </div>
+
+                    {permitsLoading ? (
+                      <div className="py-12 text-center text-sm text-gray-400">Loading permits...</div>
+                    ) : filteredPermits.length === 0 ? (
+                      <div className="py-12 text-center text-sm text-gray-400">No permits found for this project.</div>
+                    ) : (
+                      <>
+                        {/* Permits Table - Desktop */}
+                        <div className="hidden lg:block overflow-x-auto">
+                          <table className="w-full">
+                            <thead>
+                              <tr className="border-b border-gray-100">
+                                <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Permit / Violation</th>
+                                <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Applied For Date</th>
+                                <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Approved Date</th>
+                                <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Expires</th>
+                                <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Document</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                              {filteredPermits.map((permit) => {
+                                const statusColor = PERMIT_STATUS_COLOR[permit.status] || '#6B7280'
+                                const statusLabel = PERMIT_STATUS_LABEL[permit.status] || permit.status || 'Unknown'
+                                return (
+                                  <tr key={permit.id} className="hover:bg-gray-50 transition-colors">
+                                    <td className="py-3 pr-4">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-sm font-medium" style={{ color: '#1D1D1F' }}>{permit.permit_type}</span>
+                                        {permit.permit_number && (
+                                          <span className="px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-600">#{permit.permit_number}</span>
+                                        )}
+                                      </div>
+                                    </td>
+                                    <td className="py-3 pr-4">
+                                      <span className="text-sm text-gray-600">{formatDate(permit.application_date) || <span className="text-gray-400">NA</span>}</span>
+                                    </td>
+                                    <td className="py-3 pr-4">
+                                      {permit.approval_date ? (
+                                        <span className="text-sm text-green-600">{formatDate(permit.approval_date)}</span>
+                                      ) : (
+                                        <span className="text-sm text-gray-400">NA</span>
+                                      )}
+                                    </td>
+                                    <td className="py-3 pr-4">
+                                      <span className="text-sm font-medium" style={{ color: statusColor }}>{statusLabel}</span>
+                                    </td>
+                                    <td className="py-3 pr-4">
+                                      {permit.expiration_date ? (
+                                        <span className="text-sm text-gray-600">{formatDate(permit.expiration_date)}</span>
+                                      ) : (
+                                        <span className="text-sm text-gray-400">NA</span>
+                                      )}
+                                    </td>
+                                    <td className="py-3">
+                                      {permit.document_url ? (
+                                        <a
+                                          href={permit.document_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                                        >
+                                          View
+                                          <LinkIcon className="w-4 h-4" />
+                                        </a>
+                                      ) : (
+                                        <span className="text-sm text-gray-400">NA</span>
+                                      )}
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Permits List - Mobile */}
+                        <div className="lg:hidden divide-y divide-gray-100">
+                          {filteredPermits.map((permit) => {
+                            const statusColor = PERMIT_STATUS_COLOR[permit.status] || '#6B7280'
+                            const statusLabel = PERMIT_STATUS_LABEL[permit.status] || permit.status || 'Unknown'
+                            return (
+                              <div key={permit.id} className="py-4">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium" style={{ color: '#1D1D1F' }}>{permit.permit_type}</span>
+                                    {permit.permit_number && (
+                                      <span className="px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-600">#{permit.permit_number}</span>
+                                    )}
+                                  </div>
+                                  <span className="text-xs font-medium" style={{ color: statusColor }}>{statusLabel}</span>
+                                </div>
+                                <div className="flex items-center justify-between text-xs text-gray-500">
+                                  <span>Applied: {formatDate(permit.application_date) || 'NA'}</span>
+                                  {permit.approval_date && <span className="text-green-600">Approved: {formatDate(permit.approval_date)}</span>}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* Upload Section */}
@@ -1598,7 +1730,8 @@ function ProjectDetail({ user }) {
                     />
                   </div>
                 </div>
-              )}
+                )
+              })()}
 
               {/* Contractors Tab Content */}
               {activeTab === 'contractors' && (
@@ -3055,6 +3188,19 @@ function ProjectDetail({ user }) {
           due_date: t.due_date,
           priority: t.priority,
         }))}
+      />
+      <AddPermitModal
+        isOpen={addPermitModalOpen}
+        onClose={() => setAddPermitModalOpen(false)}
+        projectId={projectId}
+        onSuccess={async () => {
+          const { data } = await supabase
+            .from('permits')
+            .select('*')
+            .eq('project_id', projectId)
+            .order('application_date', { ascending: false })
+          setPermits(data || [])
+        }}
       />
     </GlobalNav>
   )
