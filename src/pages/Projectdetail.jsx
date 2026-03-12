@@ -1162,10 +1162,8 @@ function ProjectDetail({ user }) {
                           <h4 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>
                             {contact.company || contact.name}
                           </h4>
-                          <div
-                            className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: contact.is_primary ? '#22C55E' : '#6B7280' }}
-                          />
+
+                          <div className="w-2.5 h-2.5 rounded-full bg-gray-300" />
                           {contact.role && (
                             <span
                               className="px-2 py-1 rounded text-xs font-medium text-white flex items-center gap-1"
