@@ -203,6 +203,14 @@ export default function AISummaryModal({
     }
   }, [isOpen]);
 
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape' && isOpen) onClose();
+    };
+    window.addEventListener('keydown', handleEsc);
+    return () => window.removeEventListener('keydown', handleEsc);
+  }, [isOpen, onClose]);
+
   const handleGenerate = async () => {
     await generateSummary(project, tasks, options);
   };

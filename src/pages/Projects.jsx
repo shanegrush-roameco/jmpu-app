@@ -3,11 +3,12 @@
 // Uses GlobalNav as wrapper (correct pattern from Sprint 7)
 // ============================================================================
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import GlobalNav from '../components/GlobalNav'
-import DatePicker from '../components/DatePicker'
-import { useProjects, createProject } from '../hooks/useProjects'
+import CreateProjectModal from '../components/modals/CreateProjectModal'
+import AISummaryModal from '../components/modals/AISummaryModal'
+import { useProjects } from '../hooks/useProjects'
 
 // Status configuration with colors (matching database enum values)
 const statusConfig = {
@@ -37,101 +38,14 @@ function Projects({ user }) {
   const [statusFilter, setStatusFilter] = useState(
     location.state?.statusFilter ?? 'All'
   )
-  const [selectedProjects, setSelectedProjects] = useState(new Set())
   const [newProjectModalOpen, setNewProjectModalOpen] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [submitError, setSubmitError] = useState(null)
-  const [newProjectFormData, setNewProjectFormData] = useState({
-    name: '',
-    project_type: 'general_construction',
-    address_line1: '',
-    city: '',
-    state: 'UT',
-    zip_code: '',
-    start_date: '',
-    description: '',
-  })
+  const [aiSummaryModalOpen, setAiSummaryModalOpen] = useState(false)
 
   // Fetch projects from Supabase
   const { projects, loading, error, refetch } = useProjects({
     search: searchQuery,
     status: statusFilter !== 'All' ? statusFilter : null,
   })
-
-  const handleNewProjectFormChange = (field, value) => {
-    setNewProjectFormData(prev => ({ ...prev, [field]: value }))
-  }
-
-  const resetNewProjectForm = () => {
-    setNewProjectFormData({
-      name: '',
-      project_type: 'general_construction',
-      address_line1: '',
-      city: '',
-      state: 'UT',
-      zip_code: '',
-      start_date: '',
-      description: '',
-    })
-    setSubmitError(null)
-  }
-
-  // Handle form submission to Supabase
-  const handleCreateProject = async () => {
-    if (!newProjectFormData.name.trim()) {
-      setSubmitError('Project name is required')
-      return
-    }
-
-    setIsSubmitting(true)
-    setSubmitError(null)
-
-    try {
-      await createProject({
-        name: newProjectFormData.name,
-        project_type: newProjectFormData.project_type,
-        address_line1: newProjectFormData.address_line1,
-        city: newProjectFormData.city,
-        state: newProjectFormData.state,
-        zip_code: newProjectFormData.zip_code,
-        start_date: newProjectFormData.start_date || null,
-        description: newProjectFormData.description,
-        status: 'planning',
-      })
-      
-      setNewProjectModalOpen(false)
-      resetNewProjectForm()
-      refetch() // Refresh the projects list
-    } catch (err) {
-      console.error('Failed to create project:', err)
-      setSubmitError(err.message || 'Failed to create project')
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
-  // Close modal on ESC key
-  useEffect(() => {
-    const handleEsc = (e) => {
-      if (e.key === 'Escape') {
-        if (newProjectModalOpen) setNewProjectModalOpen(false)
-      }
-    }
-    window.addEventListener('keydown', handleEsc)
-    return () => window.removeEventListener('keydown', handleEsc)
-  }, [newProjectModalOpen])
-
-  const toggleProjectSelection = (projectId) => {
-    setSelectedProjects(prev => {
-      const newSet = new Set(prev)
-      if (newSet.has(projectId)) {
-        newSet.delete(projectId)
-      } else {
-        newSet.add(projectId)
-      }
-      return newSet
-    })
-  }
 
   // Calculate summary stats from real data
   const summaryStats = {
@@ -169,6 +83,7 @@ function Projects({ user }) {
             New Project
           </button>
           <button 
+            onClick={() => setAiSummaryModalOpen(true)}
             className="w-full lg:w-auto group px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors hover:text-white"
             style={{ 
               color: '#111111', 
@@ -387,26 +302,9 @@ function Projects({ user }) {
                 className="flex items-center justify-between px-4 py-4 hover:bg-gray-50 transition-colors cursor-pointer"
                 onClick={() => navigate(`/projects/${project.id}`)}
               >
-                <div className="flex items-center gap-3">
-                  <div 
-                    className={`w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-colors ${
-                      selectedProjects.has(project.id) 
-                        ? 'bg-gray-900 border-gray-900' 
-                        : 'border-gray-300'
-                    }`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      toggleProjectSelection(project.id)
-                    }}
-                  >
-                    {selectedProjects.has(project.id) && (
-                      <CheckIcon className="w-3 h-3 text-white" />
-                    )}
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-900 underline">{project.name}</span>
-                    <span className="block text-xs text-gray-400">{project.project_number}</span>
-                  </div>
+                <div>
+                  <span className="text-sm font-medium text-gray-900 underline">{project.name}</span>
+                  <span className="block text-xs text-gray-400">{project.project_number}</span>
                 </div>
                 <ChevronRightIcon className="w-5 h-5 text-gray-400" />
               </div>
@@ -415,217 +313,22 @@ function Projects({ user }) {
         )}
       </div>
 
-      {/* New Project Modal */}
-      {newProjectModalOpen && (
-        <div 
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-          onClick={() => setNewProjectModalOpen(false)}
-        >
-          <div 
-            className="bg-white w-full max-w-md max-h-[90vh] overflow-y-auto"
-            style={{ borderRadius: '16px', boxShadow: '2px 4px 24px rgba(0, 0, 0, 0.15)' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>New Project</h2>
-              <button 
-                onClick={() => {
-                  setNewProjectModalOpen(false)
-                  resetNewProjectForm()
-                }}
-                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <CloseIcon className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
+      <CreateProjectModal
+        isOpen={newProjectModalOpen}
+        onClose={() => setNewProjectModalOpen(false)}
+        onSuccess={() => { setNewProjectModalOpen(false); refetch() }}
+      />
 
-            {/* Modal Body */}
-            <div className="p-6 space-y-4">
-              {/* Error Message */}
-              {submitError && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <p className="text-sm text-red-600">{submitError}</p>
-                </div>
-              )}
-
-              {/* Project Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Project Name *</label>
-                <input
-                  type="text"
-                  placeholder="Enter project name"
-                  value={newProjectFormData.name}
-                  onChange={(e) => handleNewProjectFormChange('name', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              {/* Project Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Project Type</label>
-                <select
-                  value={newProjectFormData.project_type}
-                  onChange={(e) => handleNewProjectFormChange('project_type', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="renovation">Renovation</option>
-                  <option value="insurance_repair">Insurance Repair</option>
-                  <option value="fire_rehabilitation">Fire Rehabilitation</option>
-                  <option value="water_damage">Water Damage</option>
-                  <option value="mold_remediation">Mold Remediation</option>
-                  <option value="general_construction">General Construction</option>
-                  <option value="demolition">Demolition</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-
-              {/* Address */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-                <input
-                  type="text"
-                  placeholder="Street address"
-                  value={newProjectFormData.address_line1}
-                  onChange={(e) => handleNewProjectFormChange('address_line1', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              {/* City, State, ZIP Row */}
-              <div className="grid grid-cols-6 gap-3">
-                <div className="col-span-3">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-                  <input
-                    type="text"
-                    placeholder="City"
-                    value={newProjectFormData.city}
-                    onChange={(e) => handleNewProjectFormChange('city', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-                <div className="col-span-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
-                  <select
-                    value={newProjectFormData.state}
-                    onChange={(e) => handleNewProjectFormChange('state', e.target.value)}
-                    className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="AL">AL</option>
-                    <option value="AK">AK</option>
-                    <option value="AZ">AZ</option>
-                    <option value="AR">AR</option>
-                    <option value="CA">CA</option>
-                    <option value="CO">CO</option>
-                    <option value="CT">CT</option>
-                    <option value="DE">DE</option>
-                    <option value="FL">FL</option>
-                    <option value="GA">GA</option>
-                    <option value="HI">HI</option>
-                    <option value="ID">ID</option>
-                    <option value="IL">IL</option>
-                    <option value="IN">IN</option>
-                    <option value="IA">IA</option>
-                    <option value="KS">KS</option>
-                    <option value="KY">KY</option>
-                    <option value="LA">LA</option>
-                    <option value="ME">ME</option>
-                    <option value="MD">MD</option>
-                    <option value="MA">MA</option>
-                    <option value="MI">MI</option>
-                    <option value="MN">MN</option>
-                    <option value="MS">MS</option>
-                    <option value="MO">MO</option>
-                    <option value="MT">MT</option>
-                    <option value="NE">NE</option>
-                    <option value="NV">NV</option>
-                    <option value="NH">NH</option>
-                    <option value="NJ">NJ</option>
-                    <option value="NM">NM</option>
-                    <option value="NY">NY</option>
-                    <option value="NC">NC</option>
-                    <option value="ND">ND</option>
-                    <option value="OH">OH</option>
-                    <option value="OK">OK</option>
-                    <option value="OR">OR</option>
-                    <option value="PA">PA</option>
-                    <option value="RI">RI</option>
-                    <option value="SC">SC</option>
-                    <option value="SD">SD</option>
-                    <option value="TN">TN</option>
-                    <option value="TX">TX</option>
-                    <option value="UT">UT</option>
-                    <option value="VT">VT</option>
-                    <option value="VA">VA</option>
-                    <option value="WA">WA</option>
-                    <option value="WV">WV</option>
-                    <option value="WI">WI</option>
-                    <option value="WY">WY</option>
-                  </select>
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">ZIP</label>
-                  <input
-                    type="text"
-                    placeholder="99999"
-                    maxLength={5}
-                    value={newProjectFormData.zip_code}
-                    onChange={(e) => handleNewProjectFormChange('zip_code', e.target.value.replace(/\D/g, '').slice(0, 5))}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Start Date */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                <input
-                  type="date"
-                  value={newProjectFormData.start_date}
-                  onChange={(e) => handleNewProjectFormChange('start_date', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea
-                  placeholder="Brief project description..."
-                  rows={3}
-                  value={newProjectFormData.description}
-                  onChange={(e) => handleNewProjectFormChange('description', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
-                />
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-col-reverse lg:flex-row gap-3 pt-2">
-                <button 
-                  onClick={() => {
-                    setNewProjectModalOpen(false)
-                    resetNewProjectForm()
-                  }}
-                  disabled={isSubmitting}
-                  className="flex-1 px-6 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-                  style={{ color: '#111111', border: '1px solid #111111' }}
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handleCreateProject}
-                  disabled={isSubmitting}
-                  className="flex-1 px-6 py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-colors disabled:opacity-50"
-                  style={{ backgroundColor: '#1D1D1F' }}
-                >
-                  {isSubmitting ? 'Creating...' : 'Create Project'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <AISummaryModal
+        isOpen={aiSummaryModalOpen}
+        onClose={() => setAiSummaryModalOpen(false)}
+        project={{
+          name: 'All Projects',
+          status: `${summaryStats.total} total`,
+          projects: projects,
+        }}
+        tasks={[]}
+      />
     </GlobalNav>
   )
 }
@@ -668,22 +371,6 @@ function ChevronDownIcon({ className }) {
   return (
     <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-    </svg>
-  )
-}
-
-function CheckIcon({ className }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-    </svg>
-  )
-}
-
-function CloseIcon({ className }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
     </svg>
   )
 }
