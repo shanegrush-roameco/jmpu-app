@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import GlobalNav from '../components/GlobalNav'
 import AISummaryModal from '../components/modals/AISummaryModal'
+import EditProjectModal from '../components/modals/EditProjectModal'
 import { MessagesTab } from '../components/messages'
 import FinancialValidation from '../components/FinancialValidation'
-10
+import { supabase } from '../lib/supabase'
+import { useTasks, updateTask } from '../hooks/useTasks'
 // Mock project data
 const projectData = {
   id: '1283614-1',
@@ -337,6 +339,56 @@ function ProjectDetail({ user }) {
     }
   }
 
+  // Fetch real project data
+  const [project, setProject] = useState(null)
+  const [projectLoading, setProjectLoading] = useState(true)
+  useEffect(() => {
+    if (!projectId) return
+    const fetchProject = async () => {
+      const { data } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('id', projectId)
+        .single()
+      if (data) setProject(data)
+      setProjectLoading(false)
+    }
+    fetchProject()
+  }, [projectId])
+
+  // Real tasks for this project
+  const { tasks, loading: tasksLoading, refetch: refetchTasks } = useTasks({ projectId })
+  const [completedTaskIds, setCompletedTaskIds] = useState(new Set())
+  const [archivedTaskIds, setArchivedTaskIds] = useState(new Set())
+  const [showArchived, setShowArchived] = useState(false)
+
+  const toggleTaskComplete = useCallback(async (taskId, currentStatus) => {
+    const newStatus = currentStatus === 'completed' ? 'in_progress' : 'completed'
+    setCompletedTaskIds(prev => {
+      const next = new Set(prev)
+      newStatus === 'completed' ? next.add(taskId) : next.delete(taskId)
+      return next
+    })
+    await updateTask(taskId, { status: newStatus })
+    refetchTasks()
+  }, [refetchTasks])
+
+  const archiveTask = useCallback(async (taskId) => {
+    setArchivedTaskIds(prev => new Set(prev).add(taskId))
+    await updateTask(taskId, { is_archived: true, archived_at: new Date().toISOString() })
+    refetchTasks()
+  }, [refetchTasks])
+
+  const restoreTask = useCallback(async (taskId) => {
+    setArchivedTaskIds(prev => {
+      const next = new Set(prev)
+      next.delete(taskId)
+      return next
+    })
+    await updateTask(taskId, { is_archived: false, archived_at: null, status: 'in_progress' })
+    refetchTasks()
+  }, [refetchTasks])
+
   return (
     <GlobalNav user={user} activeNav="projects">
           {/* Project Header */}
@@ -349,7 +401,7 @@ function ProjectDetail({ user }) {
                 <ChevronLeftIcon className="w-5 h-5 text-gray-500" />
               </button>
               <h2 className="text-xl lg:text-2xl font-semibold" style={{ color: '#1D1D1F' }}>
-                {projectData.name} #{projectData.id}
+                {project?.name || '...'} {project?.project_number ? `#${project.project_number}` : ''}
               </h2>
               {/* Avatar on desktop */}
               <div className="hidden lg:flex items-center gap-2 ml-2">
@@ -421,23 +473,9 @@ function ProjectDetail({ user }) {
               ) : (
                 <>
                   <button 
+                    onClick={() => setEditModalOpen(true)}
                     className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
                     style={{ backgroundColor: '#1D1D1F' }}
-                  >
-                    Send Message
-                  </button>
-                  <button 
-                    onClick={() => setEditModalOpen(true)}
-                    className="w-full lg:w-auto px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
-                    style={{ color: '#111111', border: '1px solid #111111' }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#111111'
-                      e.currentTarget.style.color = '#FFFFFF'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent'
-                      e.currentTarget.style.color = '#111111'
-                    }}
                   >
                     Edit Project
                   </button>
@@ -472,20 +510,20 @@ function ProjectDetail({ user }) {
                 {/* Mobile: Simple status */}
                 <div className="lg:hidden">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm text-gray-600">Status: {projectData.status}</span>
-                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: projectData.statusColor }} />
+                    <span className="text-sm text-gray-600">Status: {project?.status || ''}</span>
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: project?.status_color || '#6B7280' }} />
                   </div>
-                  <p className="text-sm text-gray-500">Estimated Completion: {projectData.estimatedCompletion}</p>
+                  <p className="text-sm text-gray-500">Estimated Completion: {project?.estimated_completion_date || ''}</p>
                 </div>
               </div>
               
               {/* Desktop: Status info */}
               <div className="hidden lg:flex items-center gap-6">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">Status: {projectData.status}</span>
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: projectData.statusColor }} />
+                  <span className="text-sm text-gray-600">Status: {project?.status || ''}</span>
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: project?.status_color || '#6B7280' }} />
                 </div>
-                <span className="text-sm text-gray-600">Estimated Completion: {projectData.estimatedCompletion}</span>
+                <span className="text-sm text-gray-600">Estimated Completion: {project?.estimated_completion_date || ''}</span>
               </div>
             </div>
 
@@ -761,8 +799,8 @@ function ProjectDetail({ user }) {
               {activeTab === 'overview' && (
                 <>
                   {/* Desktop: Tasks header */}
-                  <div className="hidden lg:block p-6 pb-4">
-                    <div className="flex items-center justify-between mb-4">
+                  <div className="hidden lg:block px-6 pt-4 pb-3">
+                    <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Tasks</h3>
                       <div className="flex items-center gap-2">
                         <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
@@ -782,49 +820,275 @@ function ProjectDetail({ user }) {
                   <tr className="border-t border-gray-100">
                     <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                     <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Actual Date</th>
-                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Days Early / Pass</th>
-                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Status Note</th>
+                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
+                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="py-3 px-6"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {projectData.tasks.map((task) => (
-                    <tr key={task.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="py-4 px-6">
-                        <span className="text-sm text-gray-900">{task.name}</span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="text-sm text-gray-600">{task.dueDate}</span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="text-sm text-gray-600">{task.actualDate}</span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className={`text-sm flex items-center gap-1 ${getDaysStatusStyle(task.daysStatusType)}`}>
-                          {task.daysStatusType === 'late' && <WarningIcon className="w-4 h-4" />}
-                          {task.daysStatus}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="text-sm text-gray-600">{task.note}</span>
-                      </td>
-                    </tr>
-                  ))}
+                  {tasksLoading && (
+                    <tr><td colSpan={5} className="py-8 text-center text-sm text-gray-400">Loading tasks...</td></tr>
+                  )}
+                  {!tasksLoading && tasks.length === 0 && (
+                    <tr><td colSpan={5} className="py-8 text-center text-sm text-gray-400">No tasks yet for this project.</td></tr>
+                  )}
+                  {!tasksLoading && (() => {
+                    const activeTasks = tasks.filter(t => !t.is_archived && !archivedTaskIds.has(t.id) && t.status !== 'completed' && !completedTaskIds.has(t.id))
+                    const completedTasks = tasks.filter(t => !t.is_archived && !archivedTaskIds.has(t.id) && (t.status === 'completed' || completedTaskIds.has(t.id)))
+                    const archivedTasks = tasks.filter(t => t.is_archived || archivedTaskIds.has(t.id))
+                    return (
+                      <>
+                        {/* Active tasks */}
+                        {activeTasks.map((task) => (
+                          <tr key={task.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="py-4 px-6">
+                              <div className="flex items-center gap-4">
+                                <div
+                                  onClick={() => toggleTaskComplete(task.id, task.status)}
+                                  className="w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-colors flex-shrink-0"
+                                  style={{ backgroundColor: 'transparent', borderColor: '#D1D5DB' }}
+                                />
+                                <span className="text-sm text-gray-900">{task.title}</span>
+                              </div>
+                            </td>
+                            <td className="py-4 px-6">
+                              <span className="text-sm text-gray-600">
+                                {task.due_date ? new Date(task.due_date).toLocaleDateString() : '—'}
+                              </span>
+                            </td>
+                            <td className="py-4 px-6">
+                              <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                                task.priority === 'high' ? 'bg-red-100 text-red-700' :
+                                task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-gray-100 text-gray-600'
+                              }`}>
+                                {task.priority || 'normal'}
+                              </span>
+                            </td>
+                            <td className="py-4 px-6">
+                              <span className={`text-sm ${getDaysStatusStyle(task.status)}`}>
+                                {task.status?.replace('_', ' ') || '—'}
+                              </span>
+                            </td>
+                            <td className="py-4 px-6" />
+                          </tr>
+                        ))}
+
+                        {/* Completed divider + section */}
+                        {completedTasks.length > 0 && (
+                          <>
+                            <tr>
+                              <td colSpan={5} className="pt-4 pb-2 px-6">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Completed</span>
+                                  <div className="flex-1 h-px bg-gray-100" />
+                                  <span className="text-xs text-gray-400">{completedTasks.length}</span>
+                                </div>
+                              </td>
+                            </tr>
+                            {completedTasks.map((task) => (
+                              <tr key={task.id} className="bg-gray-50/50">
+                                <td className="py-3 px-6">
+                                  <div className="flex items-center gap-4">
+                                    <div
+                                      className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                                      style={{ backgroundColor: '#1D1D1F', borderColor: '#1D1D1F' }}
+                                    >
+                                      <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                      </svg>
+                                    </div>
+                                    <span className="text-sm text-gray-400 line-through">{task.title}</span>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-6">
+                                  <span className="text-sm text-gray-400">
+                                    {task.due_date ? new Date(task.due_date).toLocaleDateString() : '—'}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-6" />
+                                <td className="py-3 px-6" />
+                                <td className="py-3 px-6">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <button
+                                      onClick={() => toggleTaskComplete(task.id, task.status)}
+                                      className="text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors px-3 py-1 rounded-lg hover:bg-gray-100"
+                                    >
+                                      Reopen
+                                    </button>
+                                    <button
+                                      onClick={() => archiveTask(task.id)}
+                                      className="text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors px-3 py-1 rounded-lg hover:bg-gray-100"
+                                    >
+                                      Archive
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </>
+                        )}
+
+                        {/* Archived section */}
+                        {archivedTasks.length > 0 && (
+                          <>
+                            <tr>
+                              <td colSpan={5} className="pt-4 pb-2 px-6">
+                                <button
+                                  onClick={() => setShowArchived(v => !v)}
+                                  className="flex items-center gap-3 w-full group"
+                                >
+                                  <span className="text-xs font-medium text-gray-300 uppercase tracking-wider">Archived</span>
+                                  <div className="flex-1 h-px bg-gray-100" />
+                                  <span className="text-xs text-gray-300">{archivedTasks.length}</span>
+                                  <svg
+                                    className={`w-3.5 h-3.5 text-gray-300 transition-transform ${showArchived ? 'rotate-180' : ''}`}
+                                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                                  >
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                </button>
+                              </td>
+                            </tr>
+                            {showArchived && archivedTasks.map((task) => (
+                              <tr key={task.id} className="bg-gray-50/30">
+                                <td className="py-3 px-6">
+                                  <div className="flex items-center gap-4">
+                                    <div
+                                      className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                                      style={{ backgroundColor: '#E5E7EB', borderColor: '#E5E7EB' }}
+                                    >
+                                      <svg className="w-2.5 h-2.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                      </svg>
+                                    </div>
+                                    <span className="text-sm text-gray-300 line-through">{task.title}</span>
+                                  </div>
+                                </td>
+                                <td className="py-3 px-6">
+                                  <span className="text-sm text-gray-300">
+                                    {task.archived_at ? `Archived ${new Date(task.archived_at).toLocaleDateString()}` : '—'}
+                                  </span>
+                                </td>
+                                <td className="py-3 px-6" />
+                                <td className="py-3 px-6" />
+                                <td className="py-3 px-6 text-right">
+                                  <button
+                                    onClick={() => restoreTask(task.id)}
+                                    className="text-xs font-medium text-gray-300 hover:text-gray-600 transition-colors px-3 py-1 rounded-lg hover:bg-gray-100"
+                                  >
+                                    Restore
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </>
+                        )}
+                      </>
+                    )
+                  })()}
                 </tbody>
               </table>
             </div>
 
             {/* Mobile List */}
             <div className="lg:hidden divide-y divide-gray-100">
-              {projectData.tasks.map((task) => (
-                <div 
-                  key={task.id}
-                  className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors cursor-pointer"
-                >
-                  <span className="text-sm text-gray-900">{task.name}</span>
-                  <ChevronRightIcon className="w-5 h-5 text-gray-400" />
-                </div>
-              ))}
+              {tasksLoading && (
+                <div className="py-8 text-center text-sm text-gray-400">Loading tasks...</div>
+              )}
+              {!tasksLoading && (() => {
+                const activeTasks = tasks.filter(t => !t.is_archived && !archivedTaskIds.has(t.id) && t.status !== 'completed' && !completedTaskIds.has(t.id))
+                const completedTasks = tasks.filter(t => !t.is_archived && !archivedTaskIds.has(t.id) && (t.status === 'completed' || completedTaskIds.has(t.id)))
+                const archivedTasks = tasks.filter(t => t.is_archived || archivedTaskIds.has(t.id))
+                return (
+                  <>
+                    {activeTasks.map((task) => (
+                      <div key={task.id} className="flex items-center gap-3 px-6 py-4 hover:bg-gray-50 transition-colors">
+                        <div
+                          onClick={() => toggleTaskComplete(task.id, task.status)}
+                          className="w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer flex-shrink-0"
+                          style={{ backgroundColor: 'transparent', borderColor: '#D1D5DB' }}
+                        />
+                        <span className="text-sm flex-1 text-gray-900">{task.title}</span>
+                        <ChevronRightIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                      </div>
+                    ))}
+
+                    {completedTasks.length > 0 && (
+                      <>
+                        <div className="px-6 py-3 flex items-center gap-3 bg-gray-50">
+                          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Completed</span>
+                          <div className="flex-1 h-px bg-gray-200" />
+                          <span className="text-xs text-gray-400">{completedTasks.length}</span>
+                        </div>
+                        {completedTasks.map((task) => (
+                          <div key={task.id} className="flex items-center gap-3 px-6 py-4 bg-gray-50/50">
+                            <div
+                              className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                              style={{ backgroundColor: '#1D1D1F', borderColor: '#1D1D1F' }}
+                            >
+                              <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                              </svg>
+                            </div>
+                            <span className="text-sm flex-1 text-gray-400 line-through">{task.title}</span>
+                            <button
+                              onClick={() => toggleTaskComplete(task.id, task.status)}
+                              className="text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors px-2 py-1"
+                            >
+                              Reopen
+                            </button>
+                            <button
+                              onClick={() => archiveTask(task.id)}
+                              className="text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors px-2 py-1"
+                            >
+                              Archive
+                            </button>
+                          </div>
+                        ))}
+                      </>
+                    )}
+
+                    {archivedTasks.length > 0 && (
+                      <>
+                        <button
+                          onClick={() => setShowArchived(v => !v)}
+                          className="w-full px-6 py-3 flex items-center gap-3 bg-gray-50"
+                        >
+                          <span className="text-xs font-medium text-gray-300 uppercase tracking-wider">Archived</span>
+                          <div className="flex-1 h-px bg-gray-200" />
+                          <span className="text-xs text-gray-300">{archivedTasks.length}</span>
+                          <svg
+                            className={`w-3.5 h-3.5 text-gray-300 transition-transform ${showArchived ? 'rotate-180' : ''}`}
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {showArchived && archivedTasks.map((task) => (
+                          <div key={task.id} className="flex items-center gap-3 px-6 py-4 bg-gray-50/30">
+                            <div
+                              className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                              style={{ backgroundColor: '#E5E7EB', borderColor: '#E5E7EB' }}
+                            >
+                              <svg className="w-2.5 h-2.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                              </svg>
+                            </div>
+                            <span className="text-sm flex-1 text-gray-300 line-through">{task.title}</span>
+                            <button
+                              onClick={() => restoreTask(task.id)}
+                              className="text-xs font-medium text-gray-300 hover:text-gray-600 transition-colors px-2 py-1"
+                            >
+                              Restore
+                            </button>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </>
+                )
+              })()}
             </div>
                 </>
               )}
@@ -1771,11 +2035,13 @@ function ProjectDetail({ user }) {
             </div>
           )}
 
-          {/* Project Timeline Section */}
-          <div 
-            className="bg-white mb-6"
-            style={{ borderRadius: '16px', boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)' }}
-          >
+          {/* Project Timeline + Customer - Overview only */}
+          {activeTab === 'overview' && (
+            <>
+            <div 
+              className="bg-white mb-6"
+              style={{ borderRadius: '16px', boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)' }}
+            >
             <div 
               className="p-6 flex items-center justify-between cursor-pointer"
               onClick={() => toggleSection('timeline')}
@@ -1981,205 +2247,17 @@ function ProjectDetail({ user }) {
               </div>
             )}
           </div>
+          </>) } {/* end activeTab === 'overview' */}
 
       {/* Edit Project Modal */}
-      {editModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center">
-          {/* Scrim - covers everything including nav */}
-          <div 
-            className="absolute inset-0 bg-black/50"
-            onClick={() => setEditModalOpen(false)}
-          />
-          
-          {/* Modal */}
-          <div 
-            className="relative bg-white w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto"
-            style={{ 
-              borderRadius: '16px',
-              boxShadow: '2px 4px 24px rgba(0, 0, 0, 0.15)'
-            }}
-          >
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 pb-4">
-              <h2 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Edit Project</h2>
-              <button 
-                onClick={() => setEditModalOpen(false)}
-                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <CloseIcon className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="px-6 pb-6 space-y-4">
-              {/* Bidding Date */}
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Bidding Date</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="mm/dd/yyyy"
-                    value={editFormData.biddingDate}
-                    onChange={(e) => handleEditFormChange('biddingDate', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                </div>
-              </div>
-
-              {/* Pending Date */}
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Pending Date</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="mm/dd/yyyy"
-                    value={editFormData.pendingDate}
-                    onChange={(e) => handleEditFormChange('pendingDate', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                </div>
-              </div>
-
-              {/* Scheduling Date */}
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Scheduling Date</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="mm/dd/yyyy"
-                    value={editFormData.schedulingDate}
-                    onChange={(e) => handleEditFormChange('schedulingDate', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                </div>
-              </div>
-
-              {/* Work In Progress Date */}
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Work In Progress Date</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="mm/dd/yyyy"
-                    value={editFormData.workInProgressDate1}
-                    onChange={(e) => handleEditFormChange('workInProgressDate1', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                </div>
-              </div>
-
-              {/* Work In Progress Date 2 */}
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Work In Progress Date</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="mm/dd/yyyy"
-                    value={editFormData.workInProgressDate2}
-                    onChange={(e) => handleEditFormChange('workInProgressDate2', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                </div>
-              </div>
-
-              {/* Sent For QC Date */}
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Sent For QC Date</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="mm/dd/yyyy"
-                    value={editFormData.sentForQCDate}
-                    onChange={(e) => handleEditFormChange('sentForQCDate', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                </div>
-              </div>
-
-              {/* Pending Broker */}
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Pending Broker</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="mm/dd/yyyy"
-                    value={editFormData.pendingBroker}
-                    onChange={(e) => handleEditFormChange('pendingBroker', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                </div>
-              </div>
-
-              {/* Go Back Date */}
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Go Back Date</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="mm/dd/yyyy"
-                    value={editFormData.goBackDate}
-                    onChange={(e) => handleEditFormChange('goBackDate', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                </div>
-              </div>
-
-              {/* Completion Date */}
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Completion date</label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="mm/dd/yyyy"
-                    value={editFormData.completionDate}
-                    onChange={(e) => handleEditFormChange('completionDate', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <CalendarIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-col-reverse lg:flex-row gap-3 pt-4">
-                <button 
-                  onClick={() => setEditModalOpen(false)}
-                  className="flex-1 px-6 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
-                  style={{ color: '#111111', border: '1px solid #111111' }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#111111'
-                    e.currentTarget.style.color = '#FFFFFF'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'transparent'
-                    e.currentTarget.style.color = '#111111'
-                  }}
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={() => {
-                    // Handle save logic here
-                    console.log('Saving:', editFormData)
-                    setEditModalOpen(false)
-                  }}
-                  className="flex-1 px-6 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
-                  style={{ backgroundColor: '#1D1D1F' }}
-                >
-                  Apply
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <EditProjectModal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        project={project}
+        onSuccess={(updated) => {
+          setProject(updated)
+        }}
+      />
 
       {/* New Invoice Modal */}
       {invoiceModalOpen && (
@@ -2987,21 +3065,21 @@ function ProjectDetail({ user }) {
         isOpen={aiSummaryModalOpen}
         onClose={() => setAiSummaryModalOpen(false)}
         project={{
-          id: projectData.id,
-          project_number: projectData.id,
-          name: projectData.name,
-          status: projectData.status,
-          phase: projectData.currentPhase,
-          estimated_completion_date: projectData.estimatedCompletion,
-          budget: projectData.financials?.summary?.totalBudget,
-          amount_spent: projectData.financials?.summary?.totalBudget - projectData.financials?.summary?.budgetAvailable,
-          permits: projectData.permits,
+          id: project?.id || projectId,
+          project_number: project?.project_number,
+          name: project?.name,
+          status: project?.status,
+          phase: project?.current_phase,
+          estimated_completion_date: project?.estimated_completion_date,
+          budget: project?.budget,
+          amount_spent: project?.amount_spent,
+          permits: project?.permits,
         }}
-        tasks={projectData.tasks.map(t => ({
-          title: t.name,
-          status: t.daysStatusType,
-          due_date: t.dueDate,
-          days_variance: t.daysStatus,
+        tasks={tasks.map(t => ({
+          title: t.title,
+          status: t.status,
+          due_date: t.due_date,
+          priority: t.priority,
         }))}
       />
     </GlobalNav>
