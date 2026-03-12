@@ -393,6 +393,23 @@ function ProjectDetail({ user }) {
     refetchTasks()
   }, [refetchTasks])
 
+  // Contacts for this project
+  const [contacts, setContacts] = useState([])
+  const [contactsLoading, setContactsLoading] = useState(true)
+  useEffect(() => {
+    if (!projectId) return
+    const fetchContacts = async () => {
+      const { data } = await supabase
+        .from('project_contacts')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('is_primary', { ascending: false })
+      setContacts(data || [])
+      setContactsLoading(false)
+    }
+    fetchContacts()
+  }, [projectId])
+
   // QB Invoices for this project
   const { invoices, loading: invoicesLoading } = useQuickBooksInvoices({ projectId })
   const [invoiceSearch, setInvoiceSearch] = useState('')
@@ -1127,34 +1144,45 @@ function ProjectDetail({ user }) {
               {/* Contacts Tab Content */}
               {activeTab === 'contacts' && (
                 <div>
-                  {projectData.contacts.map((contact, index) => (
-                    <div 
-                      key={contact.id} 
-                      className={`p-6 ${index !== projectData.contacts.length - 1 ? 'border-b border-gray-100' : ''}`}
+                  {contactsLoading ? (
+                    <div className="p-6 text-center text-sm text-gray-400">Loading contacts...</div>
+                  ) : contacts.length === 0 ? (
+                    <div className="p-6 text-center text-sm text-gray-400">No contacts found for this project.</div>
+                  ) : contacts.map((contact, index) => (
+                    <div
+                      key={contact.id}
+                      className={`p-6 ${index !== contacts.length - 1 ? 'border-b border-gray-100' : ''}`}
                     >
                       {/* Contact Header */}
-                      <div 
+                      <div
                         className="flex items-center justify-between cursor-pointer"
                         onClick={() => toggleContact(contact.id)}
                       >
                         <div className="flex items-center gap-3 flex-wrap">
-                          <h4 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>{contact.company}</h4>
-                          <div 
+                          <h4 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>
+                            {contact.company || contact.name}
+                          </h4>
+                          <div
                             className="w-3 h-3 rounded-full"
-                            style={{ backgroundColor: contact.status === 'active' ? '#22C55E' : '#EAB308' }}
+                            style={{ backgroundColor: contact.is_primary ? '#22C55E' : '#6B7280' }}
                           />
-                          <span 
-                            className="px-2 py-1 rounded text-xs font-medium text-white flex items-center gap-1"
-                            style={{ backgroundColor: contact.roleColor }}
-                          >
-                            <WrenchIcon className="w-3 h-3" />
-                            {contact.role}
-                          </span>
+                          {contact.role && (
+                            <span
+                              className="px-2 py-1 rounded text-xs font-medium text-white flex items-center gap-1"
+                              style={{ backgroundColor: '#1D1D1F' }}
+                            >
+                              <WrenchIcon className="w-3 h-3" />
+                              {contact.role}
+                            </span>
+                          )}
+                          {contact.is_primary && (
+                            <span className="text-xs text-gray-400">Primary</span>
+                          )}
                         </div>
-                        <ChevronUpIcon 
+                        <ChevronUpIcon
                           className={`w-5 h-5 text-gray-400 transition-transform ${
                             expandedContacts[contact.id] !== false ? '' : 'rotate-180'
-                          }`} 
+                          }`}
                         />
                       </div>
 
@@ -1166,64 +1194,59 @@ function ProjectDetail({ user }) {
                             <div className="flex items-center gap-2">
                               <UserIcon className="w-4 h-4 text-gray-400" />
                               <span className="text-sm text-gray-600">
-                                <span className="font-medium">Point of Contact</span> {contact.pointOfContact}
+                                <span className="font-medium">Contact: </span>{contact.name}
                               </span>
                             </div>
-                            <div className="flex items-center gap-2">
-                              <PhoneIcon className="w-4 h-4 text-gray-400" />
-                              <span className="text-sm text-gray-600">
-                                <span className="font-medium">Phone:</span> {contact.phone}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <EmailIcon className="w-4 h-4 text-gray-400" />
-                              <span className="text-sm text-gray-600">
-                                <span className="font-medium">Email:</span> {contact.email}
-                              </span>
-                            </div>
+                            {contact.phone && (
+                              <div className="flex items-center gap-2">
+                                <PhoneIcon className="w-4 h-4 text-gray-400" />
+                                <span className="text-sm text-gray-600">
+                                  <span className="font-medium">Phone: </span>{contact.phone}
+                                </span>
+                              </div>
+                            )}
+                            {contact.email && (
+                              <div className="flex items-center gap-2">
+                                <EmailIcon className="w-4 h-4 text-gray-400" />
+                                <span className="text-sm text-gray-600">
+                                  <span className="font-medium">Email: </span>{contact.email}
+                                </span>
+                              </div>
+                            )}
+                            {contact.notes && (
+                              <div className="flex items-start gap-2">
+                                <NotesIcon className="w-4 h-4 text-gray-400 mt-0.5" />
+                                <span className="text-sm text-gray-600">{contact.notes}</span>
+                              </div>
+                            )}
                           </div>
 
                           {/* Action Buttons */}
                           <div className="flex flex-col gap-2">
-                            <button 
-                              className="px-4 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                              style={{ color: '#111111', border: '1px solid #E5E7EB', minWidth: '262px' }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#F9FAFB'
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = 'transparent'
-                              }}
-                            >
-                              <PhoneIcon className="w-4 h-4" />
-                              Call
-                            </button>
-                            <button 
-                              className="px-4 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                              style={{ color: '#111111', border: '1px solid #E5E7EB', minWidth: '262px' }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#F9FAFB'
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = 'transparent'
-                              }}
-                            >
-                              <EmailIcon className="w-4 h-4" />
-                              Send Message
-                            </button>
-                            <button 
-                              className="px-4 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                              style={{ color: '#111111', border: '1px solid #E5E7EB', minWidth: '262px' }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = '#F9FAFB'
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = 'transparent'
-                              }}
-                            >
-                              Lockbox Code: {contact.lockboxCode}
-                              <CopyIcon className="w-4 h-4" />
-                            </button>
+                            {contact.phone && (
+                              <a
+                                href={`tel:${contact.phone}`}
+                                className="px-4 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                                style={{ color: '#111111', border: '1px solid #E5E7EB', minWidth: '220px' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F9FAFB'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                <PhoneIcon className="w-4 h-4" />
+                                Call
+                              </a>
+                            )}
+                            {contact.email && (
+                              <a
+                                href={`mailto:${contact.email}`}
+                                className="px-4 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                                style={{ color: '#111111', border: '1px solid #E5E7EB', minWidth: '220px' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F9FAFB'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                <EmailIcon className="w-4 h-4" />
+                                Send Email
+                              </a>
+                            )}
                           </div>
                         </div>
                       )}
