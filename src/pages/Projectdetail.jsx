@@ -11,6 +11,7 @@ import { useCurrentProfile } from '../hooks/useCurrentProfile'
 import { useQuickBooksInvoices } from '../hooks/useQuickBooks'
 import { ChevronDown, Close } from '@carbon/icons-react'
 import AddPermitModal from '../components/modals/AddPermitModal'
+import GanttModal from '../components/modals/GanttModal'
 // Mock project data
 const projectData = {
   id: '1283614-1',
@@ -171,6 +172,298 @@ const projectData = {
   ]
 }
 
+// ─── MiniGantt: dynamic preview in the timeline card ──────────────────────
+const MINI_STATUS_COLORS = {
+  completed:   '#38A169',
+  in_progress: '#A0AEC0',
+  on_hold:     '#C99700',
+  blocked:     '#DE071C',
+}
+const MINI_DAY_W    = 28
+const MINI_LEFT_W   = 110
+const MINI_MONTH_H  = 28
+const MINI_WEEK_H   = 24
+const MINI_DAY_H    = 20
+const MINI_ROW_H    = 36
+
+function miniToDate(str) {
+  if (!str) return null
+  const parts = str.split('-').map(Number)
+  if (parts.length < 3 || parts.some(isNaN)) return null
+  const d = new Date(parts[0], parts[1] - 1, parts[2])
+  return isNaN(d.getTime()) ? null : d
+}
+function miniAddDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r }
+function miniDiff(a, b) { return Math.round((b.getTime() - a.getTime()) / 86_400_000) }
+
+function MiniGantt({ phases }) {
+  const allDates = []
+  phases.forEach(p => {
+    if (p.start_date) allDates.push(miniToDate(p.start_date))
+    if (p.due_date)   allDates.push(miniToDate(p.due_date))
+  })
+  const valid = allDates.filter(Boolean)
+  if (!valid.length) return null
+
+  let axisStart = miniAddDays(new Date(Math.min(...valid.map(d => d.getTime()))), -3)
+  const dow = axisStart.getDay()
+  if (dow !== 1) axisStart = miniAddDays(axisStart, dow === 0 ? -6 : -(dow - 1))
+  const axisEnd = miniAddDays(new Date(Math.max(...valid.map(d => d.getTime()))), 7)
+  const totalDays = miniDiff(axisStart, axisEnd) + 1
+  const days = Array.from({ length: totalDays }, (_, i) => miniAddDays(axisStart, i))
+
+  const months = []
+  days.forEach((d, i) => {
+    const key = `${d.getFullYear()}-${d.getMonth()}`
+    if (!months.length || months[months.length - 1].key !== key) {
+      months.push({ key, label: d.toLocaleString('en-US', { month: 'long', year: 'numeric' }), startIdx: i, count: 0 })
+    }
+    months[months.length - 1].count++
+  })
+
+  const weeks = []
+  days.forEach((d, i) => {
+    if (!weeks.length || d.getDay() === 1) {
+      weeks.push({ label: `Week ${weeks.length + 1}`, startDate: d, startIdx: i, count: 0 })
+    }
+    weeks[weeks.length - 1].count++
+  })
+
+  const fmtWeek = (start, count) => {
+    const end = miniAddDays(start, count - 1)
+    const fmt = d => `${String(d.getDate()).padStart(2,'0')} ${d.toLocaleString('en-US',{month:'short'}).toUpperCase()}`
+    return `${fmt(start)} - ${fmt(end)}`
+  }
+
+  const today = new Date(); today.setHours(0,0,0,0)
+  const todayIdx = miniDiff(axisStart, today)
+  const todayX = todayIdx >= 0 && todayIdx < totalDays ? todayIdx * MINI_DAY_W + MINI_DAY_W / 2 : null
+
+  const barProps = (startStr, endStr) => {
+    if (!startStr) return null
+    const s = miniToDate(startStr); if (!s) return null
+    const left = miniDiff(axisStart, s) * MINI_DAY_W
+    const e = miniToDate(endStr)
+    if (e) return { left, width: Math.max(miniDiff(s, e), 1) * MINI_DAY_W, isDot: false }
+    return { left: left + MINI_DAY_W / 2, isDot: true }
+  }
+
+  const totalW = totalDays * MINI_DAY_W
+
+  return (
+    <div style={{ border: '1px solid #E2E8F0', borderRadius: 10, overflow: 'hidden', fontFamily: 'Inter, sans-serif' }}>
+      <div style={{ display: 'flex', overflowX: 'auto' }}>
+        <div style={{ width: MINI_LEFT_W, minWidth: MINI_LEFT_W, flexShrink: 0, position: 'sticky', left: 0, zIndex: 10, background: 'white', borderRight: '1px solid #E2E8F0' }}>
+          <div style={{ height: MINI_MONTH_H + MINI_WEEK_H + MINI_DAY_H, borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'flex-end', padding: '0 10px 5px' }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Phase</span>
+          </div>
+          {phases.map((phase, pi) => (
+            <div key={phase.id} style={{ height: MINI_ROW_H, display: 'flex', alignItems: 'center', padding: '0 10px', borderBottom: '1px solid #F1F5F9', background: pi % 2 === 1 ? '#FAFAFA' : 'white', gap: 6 }}>
+              <div style={{ width: 7, height: 7, borderRadius: 2, flexShrink: 0, background: phase.color || MINI_STATUS_COLORS[(phase.status||'').toLowerCase()] || '#A0AEC0' }} />
+              <span style={{ fontSize: 11, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{phase.name}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ overflowX: 'auto', flex: 1 }}>
+          <div style={{ width: totalW, position: 'relative' }}>
+            <div style={{ display: 'flex', height: MINI_MONTH_H, borderBottom: '1px solid #E2E8F0', background: 'white' }}>
+              {months.map((m, i) => (
+                <div key={i} style={{ width: m.count * MINI_DAY_W, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRight: '1px solid #E2E8F0' }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#374151' }}>{m.label}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', height: MINI_WEEK_H, borderBottom: '1px solid #E2E8F0', background: 'white' }}>
+              {weeks.map((w, i) => (
+                <div key={i} style={{ width: w.count * MINI_DAY_W, display: 'flex', alignItems: 'center', paddingLeft: 5, borderRight: '1px solid #E2E8F0', gap: 4, overflow: 'hidden' }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: '#4B5563', whiteSpace: 'nowrap' }}>{w.label}</span>
+                  <span style={{ fontSize: 9, color: '#94A3B8', whiteSpace: 'nowrap' }}>{fmtWeek(w.startDate, w.count)}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', height: MINI_DAY_H, borderBottom: '1px solid #E2E8F0', background: 'white' }}>
+              {days.map((d, i) => (
+                <div key={i} style={{ width: MINI_DAY_W, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: 9, color: i === todayIdx ? '#C99700' : '#CBD5E0', fontWeight: i === todayIdx ? 700 : 400 }}>{String(d.getDate()).padStart(2, '0')}</span>
+                </div>
+              ))}
+            </div>
+            {phases.map((phase, pi) => {
+              const color = phase.color || MINI_STATUS_COLORS[(phase.status||'').toLowerCase()] || '#A0AEC0'
+              const bp = barProps(phase.start_date, phase.due_date)
+              return (
+                <div key={phase.id} style={{ height: MINI_ROW_H, position: 'relative', borderBottom: '1px solid #F1F5F9', background: pi % 2 === 1 ? '#FAFAFA' : 'white' }}>
+                  {weeks.map((w, wi) => (
+                    <div key={wi} style={{ position: 'absolute', left: w.startIdx * MINI_DAY_W, top: 0, bottom: 0, width: w.count * MINI_DAY_W, background: wi % 2 === 1 ? 'rgba(0,0,0,0.012)' : 'transparent', borderRight: '1px solid #F1F5F9' }} />
+                  ))}
+                  {bp && !bp.isDot && (
+                    <div style={{ position: 'absolute', left: bp.left + 2, top: '50%', transform: 'translateY(-50%)', width: Math.max(bp.width - 4, 12), height: 22, borderRadius: 5, background: color, display: 'flex', alignItems: 'center', paddingLeft: 7, overflow: 'hidden', zIndex: 2 }}>
+                      <span style={{ fontSize: 10, fontWeight: 500, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{phase.name}</span>
+                    </div>
+                  )}
+                  {bp && bp.isDot && (
+                    <div style={{ position: 'absolute', left: bp.left - 5, top: '50%', transform: 'translateY(-50%)', width: 10, height: 10, borderRadius: '50%', background: color, zIndex: 2 }} />
+                  )}
+                  {todayX !== null && (
+                    <div style={{ position: 'absolute', left: todayX, top: 0, bottom: 0, borderLeft: '2px dashed #C99700', zIndex: 6, opacity: 0.8 }} />
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+// ─── Helper shared between components ────────────────────────────────────────
+function formatDate(dateStr) {
+  if (!dateStr) return '--'
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function isOverdue(dateStr) {
+  if (!dateStr) return false
+  const due = new Date(dateStr)
+  due.setHours(23, 59, 59, 999)
+  return due < new Date()
+}
+
+const PRIORITY_STYLES = {
+  urgent: { label: 'Urgent', bg: '#FEE2E2', color: '#B91C1C' },
+  high:   { label: 'High',   bg: '#FEF3C7', color: '#B45309' },
+  medium: { label: 'Medium', bg: '#EFF6FF', color: '#1D4ED8' },
+  low:    { label: 'Low',    bg: '#F3F4F6', color: '#6B7280' },
+}
+
+function PriorityBadge({ priority }) {
+  const cfg = PRIORITY_STYLES[priority] || PRIORITY_STYLES.low
+  return (
+    <span className="text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0" style={{ backgroundColor: cfg.bg, color: cfg.color }}>
+      {cfg.label}
+    </span>
+  )
+}
+
+// ─── ProjectActionCenter ──────────────────────────────────────────────────────
+function ProjectActionCenter({ tasks, loading, onToggle, onArchive, onRestore, completedSet, archivedSet }) {
+  const [showArchived, setShowArchived] = useState(false)
+  const activeTasks = tasks.filter(t => !t.is_archived && !archivedSet.has(t.id) && t.status !== 'completed' && !completedSet.has(t.id))
+  const completedTasks = tasks.filter(t => !t.is_archived && !archivedSet.has(t.id) && (t.status === 'completed' || completedSet.has(t.id)))
+  const archivedTasks = tasks.filter(t => t.is_archived || archivedSet.has(t.id))
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="flex items-center gap-2 px-6 pt-5 pb-3 border-b border-gray-50">
+        <h3 className="text-base font-semibold" style={{ color: '#1D1D1F' }}>Action Center</h3>
+        {activeTasks.length > 0 && (
+          <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: '#1D1D1F', color: '#FFFFFF' }}>
+            {activeTasks.length}
+          </span>
+        )}
+      </div>
+
+      <div className="divide-y divide-gray-50">
+        {loading ? (
+          <div className="px-6 py-8 text-center"><p className="text-sm text-gray-400">Loading tasks...</p></div>
+        ) : activeTasks.length === 0 && completedTasks.length === 0 && archivedTasks.length === 0 ? (
+          <div className="px-6 py-8 text-center"><p className="text-sm text-gray-400">No tasks yet for this project.</p></div>
+        ) : (
+          <>
+            {/* Active */}
+            {activeTasks.map(task => (
+              <div key={task.id} className="flex items-center gap-4 px-6 py-3.5 hover:bg-gray-50 transition-colors">
+                <button
+                  onClick={() => onToggle(task.id, task.status)}
+                  className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors hover:border-gray-400"
+                  style={{ borderColor: '#D1D5DB' }}
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate" style={{ color: '#1D1D1F' }}>{task.title}</p>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {task.assigned_to_profile?.full_name && (
+                      <span className="text-xs text-gray-500">{task.assigned_to_profile.full_name}</span>
+                    )}
+                    {task.due_date && (
+                      <>
+                        {task.assigned_to_profile?.full_name && <span className="text-xs text-gray-300">•</span>}
+                        <span className={`text-xs ${isOverdue(task.due_date) ? 'text-red-500' : 'text-gray-400'}`}>
+                          Due {formatDate(task.due_date)}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                {task.priority && <PriorityBadge priority={task.priority} />}
+              </div>
+            ))}
+
+            {/* Completed */}
+            {completedTasks.length > 0 && (
+              <>
+                <div className="px-6 py-2.5 flex items-center gap-3">
+                  <span className="text-xs font-medium uppercase tracking-wider text-gray-400">Completed</span>
+                  <div className="flex-1 h-px bg-gray-100" />
+                  <span className="text-xs text-gray-400">{completedTasks.length}</span>
+                </div>
+                {completedTasks.map(task => (
+                  <div key={task.id} className="flex items-center gap-4 px-6 py-3 bg-gray-50/50">
+                    <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#1D1D1F', borderColor: '#1D1D1F' }}>
+                      <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-400 line-through truncate">{task.title}</p>
+                      {task.assigned_to_profile?.full_name && (
+                        <span className="text-xs text-gray-400">{task.assigned_to_profile.full_name}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <button onClick={() => onToggle(task.id, task.status)} className="text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors px-3 py-1 rounded-lg hover:bg-gray-100">Reopen</button>
+                      <button onClick={() => onArchive(task.id)} className="text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors px-3 py-1 rounded-lg hover:bg-gray-100">Archive</button>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+
+            {/* Archived */}
+            {archivedTasks.length > 0 && (
+              <>
+                <button onClick={() => setShowArchived(v => !v)} className="w-full px-6 py-2.5 flex items-center gap-3 hover:bg-gray-50 transition-colors">
+                  <span className="text-xs font-medium uppercase tracking-wider text-gray-300">Archived</span>
+                  <div className="flex-1 h-px bg-gray-100" />
+                  <span className="text-xs text-gray-300">{archivedTasks.length}</span>
+                  <ChevronDown size={14} className={`text-gray-300 transition-transform ${showArchived ? 'rotate-180' : ''}`} />
+                </button>
+                {showArchived && archivedTasks.map(task => (
+                  <div key={task.id} className="flex items-center gap-4 px-6 py-3 bg-gray-50/30">
+                    <div className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#E5E7EB', borderColor: '#E5E7EB' }}>
+                      <svg className="w-2.5 h-2.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-gray-300 line-through truncate">{task.title}</p>
+                      <span className="text-xs text-gray-300">{task.archived_at ? `Archived ${new Date(task.archived_at).toLocaleDateString()}` : ''}</span>
+                    </div>
+                    <button onClick={() => onRestore(task.id)} className="text-xs font-medium text-gray-300 hover:text-gray-600 transition-colors px-3 py-1 rounded-lg hover:bg-gray-100 flex-shrink-0">Restore</button>
+                  </div>
+                ))}
+              </>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
 const tabs = [
   { id: 'overview', label: 'Overview' },
   { id: 'messages', label: 'Messages' },
@@ -204,7 +497,11 @@ function ProjectDetail({ user }) {
   }, [])
 
   const [editModalOpen, setEditModalOpen] = useState(false)
+  const [showGantt, setShowGantt] = useState(false)
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
+  const [onHoldModalOpen, setOnHoldModalOpen] = useState(false)
+  const [blockedModalOpen, setBlockedModalOpen] = useState(false)
+  const [addPermitModalOpen, setAddPermitModalOpen] = useState(false)
   const [paymentModalOpen, setPaymentModalOpen] = useState(false)
   const [reportModalOpen, setReportModalOpen] = useState(false)
   const [notesModalOpen, setNotesModalOpen] = useState(false)
@@ -322,11 +619,14 @@ function ProjectDetail({ user }) {
         if (addContractorModalOpen) setAddContractorModalOpen(false)
         if (aiSummaryModalOpen) setAiSummaryModalOpen(false)
         if (addPermitModalOpen) setAddPermitModalOpen(false)
+        if (onHoldModalOpen) setOnHoldModalOpen(false)
+        if (blockedModalOpen) setBlockedModalOpen(false)
+        if (showGantt) setShowGantt(false)
       }
     }
     window.addEventListener('keydown', handleEsc)
     return () => window.removeEventListener('keydown', handleEsc)
-  }, [editModalOpen, invoiceModalOpen, paymentModalOpen, reportModalOpen, notesModalOpen, addContractorModalOpen, aiSummaryModalOpen])
+  }, [editModalOpen, invoiceModalOpen, paymentModalOpen, reportModalOpen, notesModalOpen, addContractorModalOpen, aiSummaryModalOpen, addPermitModalOpen, onHoldModalOpen, blockedModalOpen, showGantt])
 
   const toggleSection = (section) => {
     setExpandedSections(prev => ({
@@ -415,6 +715,23 @@ function ProjectDetail({ user }) {
     fetchContacts()
   }, [projectId])
 
+  // Phases for this project
+  const [phases, setPhasesData] = useState([])
+  const [phasesLoading, setPhasesLoading] = useState(true)
+  useEffect(() => {
+    if (!projectId) return
+    const fetchPhases = async () => {
+      const { data } = await supabase
+        .from('phases')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('order', { ascending: true })
+      setPhasesData(data || [])
+      setPhasesLoading(false)
+    }
+    fetchPhases()
+  }, [projectId])
+
   // On Hold toggle
   const handleOnHoldToggle = async () => {
     if (!project) return
@@ -490,11 +807,8 @@ function ProjectDetail({ user }) {
   const [invoiceSearch, setInvoiceSearch] = useState('')
   const [invoiceFilter, setInvoiceFilter] = useState('All')
 
-  const [addPermitModalOpen, setAddPermitModalOpen] = useState(false)
-  const [onHoldModalOpen, setOnHoldModalOpen] = useState(false)
   const [onHoldNote, setOnHoldNote] = useState('')
   const [onHoldSaving, setOnHoldSaving] = useState(false)
-  const [blockedModalOpen, setBlockedModalOpen] = useState(false)
   const [blockedTaskId, setBlockedTaskId] = useState('')
   const [blockedSaving, setBlockedSaving] = useState(false)
 
@@ -646,23 +960,18 @@ function ProjectDetail({ user }) {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <h3 className="text-base font-semibold" style={{ color: '#1D1D1F' }}>Project Phases</h3>
-                {/* Status pill */}
-                {project?.status && (
-                  <span
-                    className="px-2.5 py-0.5 rounded-full text-xs font-medium capitalize"
-                    style={{
-                      backgroundColor:
-                        project.status === 'active' ? '#DCFCE7' :
-                        project.status === 'completed' ? '#DCFCE7' :
-                        project.status === 'cancelled' ? '#FEE2E2' : '#F3F4F6',
-                      color:
-                        project.status === 'active' ? '#15803D' :
-                        project.status === 'completed' ? '#15803D' :
-                        project.status === 'cancelled' ? '#B91C1C' : '#6B7280',
-                    }}
-                  >
-                    {project.status === 'completed' ? 'Complete' : project.status.replace('_', ' ')}
-                  </span>
+                {phases.length > 0 && (
+                  (phases.find(p => p.status === 'in_progress' || p.status === 'on_hold' || p.status === 'blocked') ||
+                   phases.find(p => p.status !== 'completed'))
+                    ? (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>
+                        {(phases.find(p => p.status === 'in_progress' || p.status === 'on_hold' || p.status === 'blocked') || phases.find(p => p.status !== 'completed')).name}
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: '#DCFCE7', color: '#15803D' }}>
+                        Complete
+                      </span>
+                    )
                 )}
               </div>
               <div className="flex items-center gap-2">
@@ -717,91 +1026,62 @@ function ProjectDetail({ user }) {
               </div>
             )}
 
-            {/* Phase of Project Label */}
-            <div className="mb-4">
-              <div className="flex items-baseline gap-2">
-                <span className="text-sm text-gray-500">Phase:</span>
-                <span className="text-sm font-semibold" style={{ color: '#1D1D1F' }}>
-                  {projectData.phases.find(p => p.status === 'current')?.name || 'Not Started'}
-                </span>
-              </div>
-            </div>
-
             {/* Desktop: Full Phase Stepper */}
             <div className="hidden lg:block">
               <div className="relative">
-                {/* Progress Line */}
                 <div className="absolute top-3 left-0 right-0 h-1 bg-gray-200 rounded-full" />
                 <div
                   className="absolute top-3 left-0 h-1 rounded-full"
                   style={{
-                    width: '45%',
+                    width: phases.length > 0 ? `${(phases.filter(p => p.status === 'completed').length / phases.length) * 100}%` : '0%',
                     backgroundColor: project?.is_blocked ? '#EF4444' : project?.is_on_hold ? '#EAB308' : '#22C55E'
                   }}
                 />
-                
-                {/* Phase Dots */}
                 <div className="relative flex justify-between">
-                  {projectData.phases.map((phase, index) => (
-                    <div key={phase.id} className="flex flex-col items-center" style={{ width: `${100 / projectData.phases.length}%` }}>
-                      <div
-                        className="w-6 h-6 rounded-full border-2 flex items-center justify-center z-10"
-                        style={{
-                          backgroundColor:
-                            phase.status === 'complete' ? '#22C55E' :
-                            phase.status === 'current' && project?.is_blocked ? '#EF4444' :
-                            phase.status === 'current' ? '#22C55E' :
-                            '#FFFFFF',
-                          borderColor:
-                            phase.status === 'complete' ? '#22C55E' :
-                            phase.status === 'current' && project?.is_blocked ? '#EF4444' :
-                            phase.status === 'current' && project?.is_on_hold ? '#EAB308' :
-                            phase.status === 'current' ? '#22C55E' :
-                            '#D1D5DB',
-                          borderWidth: phase.status === 'current' && project?.is_on_hold && !project?.is_blocked ? '3px' : '2px',
-                        }}
-                      >
-                        {phase.status === 'complete' && (
-                          <CheckIcon className="w-3 h-3 text-white" />
-                        )}
-                        {phase.status === 'current' && (
-                          <div
-                            className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: project?.is_blocked ? '#FEE2E2' : '#FFFFFF' }}
-                          />
-                        )}
+                  {phases.map((phase) => {
+                    const isComplete = phase.status === 'completed'
+                    const isCurrent = phase.status === 'in_progress' || phase.status === 'on_hold' || phase.status === 'blocked'
+                    return (
+                      <div key={phase.id} className="flex flex-col items-center" style={{ width: `${100 / phases.length}%` }}>
+                        <div
+                          className="w-6 h-6 rounded-full border-2 flex items-center justify-center z-10"
+                          style={{
+                            backgroundColor: isComplete ? '#22C55E' : isCurrent && project?.is_blocked ? '#EF4444' : isCurrent ? '#22C55E' : '#FFFFFF',
+                            borderColor: isComplete ? '#22C55E' : isCurrent && project?.is_blocked ? '#EF4444' : isCurrent && project?.is_on_hold ? '#EAB308' : isCurrent ? '#22C55E' : '#D1D5DB',
+                            borderWidth: isCurrent && project?.is_on_hold && !project?.is_blocked ? '3px' : '2px',
+                          }}
+                        >
+                          {isComplete && <CheckIcon className="w-3 h-3 text-white" />}
+                          {isCurrent && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: project?.is_blocked ? '#FEE2E2' : '#FFFFFF' }} />}
+                        </div>
+                        <span className={`text-xs mt-2 text-center ${!isComplete && !isCurrent ? 'text-gray-400' : 'text-gray-700'}`}>
+                          {phase.name}{' '}
+                          {isCurrent && project?.is_on_hold && <span className="text-yellow-600">OH</span>}
+                        </span>
                       </div>
-                      <span className={`text-xs mt-2 text-center ${
-                        phase.status === 'pending' ? 'text-gray-400' : 'text-gray-700'
-                      }`}>
-                        {phase.name}{' '}
-                        {phase.status === 'current' && project?.is_on_hold && (
-                          <span className="text-yellow-600">OH</span>
-                        )}
-                      </span>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             </div>
 
             {/* Mobile: Simplified Phase Indicator */}
             <div className="lg:hidden">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-green-600 font-medium">Today</span>
-              </div>
-              <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div className="absolute left-0 top-0 h-full bg-green-500 rounded-full" style={{ width: '45%' }} />
-                <div 
-                  className="absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-yellow-500 rounded-full border-2 border-white"
-                  style={{ left: '45%' }}
-                />
-              </div>
-              <div className="flex justify-between mt-2">
-                <span className="text-xs text-gray-500">SCH</span>
-                <span className="text-xs text-yellow-600">OH</span>
-                <span className="text-xs text-gray-500">WIP</span>
-              </div>
+              {phases.length > 0 && (() => {
+                const pct = `${(phases.filter(p => p.status === 'completed').length / phases.length) * 100}%`
+                const barColor = project?.is_blocked ? '#EF4444' : project?.is_on_hold ? '#EAB308' : '#22C55E'
+                const currentPhase = phases.find(p => p.status === 'in_progress' || p.status === 'on_hold' || p.status === 'blocked')
+                return (
+                  <>
+                    <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden mb-2">
+                      <div className="absolute left-0 top-0 h-full rounded-full" style={{ width: pct, backgroundColor: barColor }} />
+                    </div>
+                    {currentPhase && (
+                      <p className="text-xs text-center" style={{ color: barColor }}>{currentPhase.name}</p>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           </div>
 
@@ -977,305 +1257,20 @@ function ProjectDetail({ user }) {
                 </select>
               </div>
 
-              {/* Overview Tab Content (Tasks) */}
+              {/* Overview Tab Content - Action Center */}
               {activeTab === 'overview' && (
-                <>
-                  {/* Desktop: Tasks header */}
-                  <div className="hidden lg:block px-6 pt-4 pb-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Tasks</h3>
-                      <div className="flex items-center gap-2">
-                        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                          <FilterIcon className="w-4 h-4 text-gray-500" />
-                        </button>
-                        <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                          <GridIcon className="w-4 h-4 text-gray-500" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-            {/* Desktop Table */}
-            <div className="hidden lg:block overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-t border-gray-100">
-                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
-                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
-                    <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="py-3 px-6"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {tasksLoading && (
-                    <tr><td colSpan={5} className="py-8 text-center text-sm text-gray-400">Loading tasks...</td></tr>
-                  )}
-                  {!tasksLoading && tasks.length === 0 && (
-                    <tr><td colSpan={5} className="py-8 text-center text-sm text-gray-400">No tasks yet for this project.</td></tr>
-                  )}
-                  {!tasksLoading && (() => {
-                    const activeTasks = tasks.filter(t => !t.is_archived && !archivedTaskIds.has(t.id) && t.status !== 'completed' && !completedTaskIds.has(t.id))
-                    const completedTasks = tasks.filter(t => !t.is_archived && !archivedTaskIds.has(t.id) && (t.status === 'completed' || completedTaskIds.has(t.id)))
-                    const archivedTasks = tasks.filter(t => t.is_archived || archivedTaskIds.has(t.id))
-                    return (
-                      <>
-                        {/* Active tasks */}
-                        {activeTasks.map((task) => (
-                          <tr key={task.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="py-4 px-6">
-                              <div className="flex items-center gap-4">
-                                <div
-                                  onClick={() => toggleTaskComplete(task.id, task.status)}
-                                  className="w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer transition-colors flex-shrink-0"
-                                  style={{ backgroundColor: 'transparent', borderColor: '#D1D5DB' }}
-                                />
-                                <span className="text-sm text-gray-900">{task.title}</span>
-                              </div>
-                            </td>
-                            <td className="py-4 px-6">
-                              <span className="text-sm text-gray-600">
-                                {task.due_date ? new Date(task.due_date).toLocaleDateString() : '—'}
-                              </span>
-                            </td>
-                            <td className="py-4 px-6">
-                              <span className={`text-xs font-medium px-2 py-1 rounded-full ${
-                                task.priority === 'high' ? 'bg-red-100 text-red-700' :
-                                task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                                'bg-gray-100 text-gray-600'
-                              }`}>
-                                {task.priority || 'normal'}
-                              </span>
-                            </td>
-                            <td className="py-4 px-6">
-                              <span className={`text-sm ${getDaysStatusStyle(task.status)}`}>
-                                {task.status?.replace('_', ' ') || '—'}
-                              </span>
-                            </td>
-                            <td className="py-4 px-6" />
-                          </tr>
-                        ))}
-
-                        {/* Completed divider + section */}
-                        {completedTasks.length > 0 && (
-                          <>
-                            <tr>
-                              <td colSpan={5} className="pt-4 pb-2 px-6">
-                                <div className="flex items-center gap-3">
-                                  <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Completed</span>
-                                  <div className="flex-1 h-px bg-gray-100" />
-                                  <span className="text-xs text-gray-400">{completedTasks.length}</span>
-                                </div>
-                              </td>
-                            </tr>
-                            {completedTasks.map((task) => (
-                              <tr key={task.id} className="bg-gray-50/50">
-                                <td className="py-3 px-6">
-                                  <div className="flex items-center gap-4">
-                                    <div
-                                      className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
-                                      style={{ backgroundColor: '#1D1D1F', borderColor: '#1D1D1F' }}
-                                    >
-                                      <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                      </svg>
-                                    </div>
-                                    <span className="text-sm text-gray-400 line-through">{task.title}</span>
-                                  </div>
-                                </td>
-                                <td className="py-3 px-6">
-                                  <span className="text-sm text-gray-400">
-                                    {task.due_date ? new Date(task.due_date).toLocaleDateString() : '—'}
-                                  </span>
-                                </td>
-                                <td className="py-3 px-6" />
-                                <td className="py-3 px-6" />
-                                <td className="py-3 px-6">
-                                  <div className="flex items-center justify-end gap-1">
-                                    <button
-                                      onClick={() => toggleTaskComplete(task.id, task.status)}
-                                      className="text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors px-3 py-1 rounded-lg hover:bg-gray-100"
-                                    >
-                                      Reopen
-                                    </button>
-                                    <button
-                                      onClick={() => archiveTask(task.id)}
-                                      className="text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors px-3 py-1 rounded-lg hover:bg-gray-100"
-                                    >
-                                      Archive
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </>
-                        )}
-
-                        {/* Archived section */}
-                        {archivedTasks.length > 0 && (
-                          <>
-                            <tr>
-                              <td colSpan={5} className="pt-4 pb-2 px-6">
-                                <button
-                                  onClick={() => setShowArchived(v => !v)}
-                                  className="flex items-center gap-3 w-full group"
-                                >
-                                  <span className="text-xs font-medium text-gray-300 uppercase tracking-wider">Archived</span>
-                                  <div className="flex-1 h-px bg-gray-100" />
-                                  <span className="text-xs text-gray-300">{archivedTasks.length}</span>
-                                  <svg
-                                    className={`w-3.5 h-3.5 text-gray-300 transition-transform ${showArchived ? 'rotate-180' : ''}`}
-                                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                                  >
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                                  </svg>
-                                </button>
-                              </td>
-                            </tr>
-                            {showArchived && archivedTasks.map((task) => (
-                              <tr key={task.id} className="bg-gray-50/30">
-                                <td className="py-3 px-6">
-                                  <div className="flex items-center gap-4">
-                                    <div
-                                      className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
-                                      style={{ backgroundColor: '#E5E7EB', borderColor: '#E5E7EB' }}
-                                    >
-                                      <svg className="w-2.5 h-2.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                                      </svg>
-                                    </div>
-                                    <span className="text-sm text-gray-300 line-through">{task.title}</span>
-                                  </div>
-                                </td>
-                                <td className="py-3 px-6">
-                                  <span className="text-sm text-gray-300">
-                                    {task.archived_at ? `Archived ${new Date(task.archived_at).toLocaleDateString()}` : '—'}
-                                  </span>
-                                </td>
-                                <td className="py-3 px-6" />
-                                <td className="py-3 px-6" />
-                                <td className="py-3 px-6 text-right">
-                                  <button
-                                    onClick={() => restoreTask(task.id)}
-                                    className="text-xs font-medium text-gray-300 hover:text-gray-600 transition-colors px-3 py-1 rounded-lg hover:bg-gray-100"
-                                  >
-                                    Restore
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </>
-                        )}
-                      </>
-                    )
-                  })()}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile List */}
-            <div className="lg:hidden divide-y divide-gray-100">
-              {tasksLoading && (
-                <div className="py-8 text-center text-sm text-gray-400">Loading tasks...</div>
-              )}
-              {!tasksLoading && (() => {
-                const activeTasks = tasks.filter(t => !t.is_archived && !archivedTaskIds.has(t.id) && t.status !== 'completed' && !completedTaskIds.has(t.id))
-                const completedTasks = tasks.filter(t => !t.is_archived && !archivedTaskIds.has(t.id) && (t.status === 'completed' || completedTaskIds.has(t.id)))
-                const archivedTasks = tasks.filter(t => t.is_archived || archivedTaskIds.has(t.id))
-                return (
-                  <>
-                    {activeTasks.map((task) => (
-                      <div key={task.id} className="flex items-center gap-3 px-6 py-4 hover:bg-gray-50 transition-colors">
-                        <div
-                          onClick={() => toggleTaskComplete(task.id, task.status)}
-                          className="w-5 h-5 rounded-full border-2 flex items-center justify-center cursor-pointer flex-shrink-0"
-                          style={{ backgroundColor: 'transparent', borderColor: '#D1D5DB' }}
-                        />
-                        <span className="text-sm flex-1 text-gray-900">{task.title}</span>
-                        <ChevronRightIcon className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                      </div>
-                    ))}
-
-                    {completedTasks.length > 0 && (
-                      <>
-                        <div className="px-6 py-3 flex items-center gap-3 bg-gray-50">
-                          <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">Completed</span>
-                          <div className="flex-1 h-px bg-gray-200" />
-                          <span className="text-xs text-gray-400">{completedTasks.length}</span>
-                        </div>
-                        {completedTasks.map((task) => (
-                          <div key={task.id} className="flex items-center gap-3 px-6 py-4 bg-gray-50/50">
-                            <div
-                              className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
-                              style={{ backgroundColor: '#1D1D1F', borderColor: '#1D1D1F' }}
-                            >
-                              <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                              </svg>
-                            </div>
-                            <span className="text-sm flex-1 text-gray-400 line-through">{task.title}</span>
-                            <button
-                              onClick={() => toggleTaskComplete(task.id, task.status)}
-                              className="text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors px-2 py-1"
-                            >
-                              Reopen
-                            </button>
-                            <button
-                              onClick={() => archiveTask(task.id)}
-                              className="text-xs font-medium text-gray-400 hover:text-gray-700 transition-colors px-2 py-1"
-                            >
-                              Archive
-                            </button>
-                          </div>
-                        ))}
-                      </>
-                    )}
-
-                    {archivedTasks.length > 0 && (
-                      <>
-                        <button
-                          onClick={() => setShowArchived(v => !v)}
-                          className="w-full px-6 py-3 flex items-center gap-3 bg-gray-50"
-                        >
-                          <span className="text-xs font-medium text-gray-300 uppercase tracking-wider">Archived</span>
-                          <div className="flex-1 h-px bg-gray-200" />
-                          <span className="text-xs text-gray-300">{archivedTasks.length}</span>
-                          <svg
-                            className={`w-3.5 h-3.5 text-gray-300 transition-transform ${showArchived ? 'rotate-180' : ''}`}
-                            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                          </svg>
-                        </button>
-                        {showArchived && archivedTasks.map((task) => (
-                          <div key={task.id} className="flex items-center gap-3 px-6 py-4 bg-gray-50/30">
-                            <div
-                              className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
-                              style={{ backgroundColor: '#E5E7EB', borderColor: '#E5E7EB' }}
-                            >
-                              <svg className="w-2.5 h-2.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                              </svg>
-                            </div>
-                            <span className="text-sm flex-1 text-gray-300 line-through">{task.title}</span>
-                            <button
-                              onClick={() => restoreTask(task.id)}
-                              className="text-xs font-medium text-gray-300 hover:text-gray-600 transition-colors px-2 py-1"
-                            >
-                              Restore
-                            </button>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                  </>
-                )
-              })()}
-            </div>
-                </>
+                <ProjectActionCenter
+                  tasks={tasks}
+                  loading={tasksLoading}
+                  onToggle={toggleTaskComplete}
+                  onArchive={archiveTask}
+                  onRestore={restoreTask}
+                  completedSet={completedTaskIds}
+                  archivedSet={archivedTaskIds}
+                />
               )}
 
-              {/* Contacts Tab Content */}
+                            {/* Contacts Tab Content */}
               {activeTab === 'contacts' && (
                 <div>
                   {contactsLoading ? (
@@ -2232,89 +2227,23 @@ function ProjectDetail({ user }) {
 
             {expandedSections.timeline && (
               <div className="px-6 pb-6">
-                {/* Gantt Chart */}
-                <div className="border border-gray-200 rounded-lg overflow-hidden">
-                  {/* Month Header */}
-                  <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-                    <span className="text-sm font-medium text-gray-700">{projectData.timeline.month}</span>
+                {/* Mini Gantt Preview */}
+                {phases.length === 0 || !phases.some(p => p.start_date || p.due_date) ? (
+                  <div className="border border-gray-200 rounded-lg p-8 flex items-center justify-center">
+                    <span className="text-sm text-gray-400">No timeline data yet. Add phases with start and due dates.</span>
                   </div>
-
-                  {/* Week Headers */}
-                  <div className="flex border-b border-gray-200">
-                    {projectData.timeline.weeks.map((week, index) => (
-                      <div 
-                        key={index} 
-                        className="flex-1 border-r border-gray-200 last:border-r-0 min-w-0"
-                      >
-                        <div className="px-2 lg:px-3 py-2 border-b border-gray-100">
-                          <div className="text-xs font-medium text-gray-700 truncate">{week.label}</div>
-                          <div className="text-xs text-gray-500 truncate hidden sm:block">{week.dates}</div>
-                        </div>
-                        <div className="flex">
-                          {week.days.map((day, dayIndex) => (
-                            <div 
-                              key={dayIndex} 
-                              className="flex-1 py-1 text-center text-xs text-gray-400 border-r border-gray-100 last:border-r-0"
-                            >
-                              <span className="hidden sm:inline">{day}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Gantt Rows */}
-                  <div className="relative" style={{ height: '300px' }}>
-                    {projectData.timeline.phases.map((phase, index) => (
-                      <div
-                        key={index}
-                        className="absolute flex items-center"
-                        style={{
-                          top: `${phase.row * 42 + 10}px`,
-                          left: `${phase.start * (100 / 6)}%`,
-                          width: `${phase.duration * (100 / 6)}%`,
-                          height: '32px',
-                        }}
-                      >
-                        <div 
-                          className={`h-full rounded px-2 flex items-center text-xs font-medium truncate ${
-                            phase.isMarker ? 'border-l-4 border-red-400' : ''
-                          }`}
-                          style={{ 
-                            backgroundColor: phase.color,
-                            width: '100%',
-                            color: phase.isMarker ? '#DC2626' : '#374151'
-                          }}
-                        >
-                          {phase.name}
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {/* Today Marker */}
-                    <div 
-                      className="absolute top-0 bottom-0 w-0.5 bg-red-400"
-                      style={{ left: '50%' }}
-                    >
-                      <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-red-400" />
-                    </div>
-                  </div>
-                </div>
+                ) : (
+                  <MiniGantt phases={phases} />
+                )}
 
                 {/* View Gantt Chart Button */}
                 <div className="flex justify-center mt-4">
-                  <button 
+                  <button
                     className="px-6 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
                     style={{ color: '#111111', border: '1px solid #111111' }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#111111'
-                      e.currentTarget.style.color = '#FFFFFF'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent'
-                      e.currentTarget.style.color = '#111111'
-                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#111111'; e.currentTarget.style.color = '#FFFFFF' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#111111' }}
+                    onClick={() => setShowGantt(true)}
                   >
                     View Gantt Chart
                   </button>
@@ -2334,7 +2263,7 @@ function ProjectDetail({ user }) {
             >
               <div className="flex items-center gap-2">
                 <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Customer</h3>
-                <div className="w-3 h-3 rounded-full bg-green-500" />
+                <div className="w-3 h-3 rounded-full bg-gray-300" />
               </div>
               <ChevronUpIcon className={`w-5 h-5 text-gray-500 transition-transform ${expandedSections.customer ? '' : 'rotate-180'}`} />
             </div>
@@ -3388,6 +3317,14 @@ function ProjectDetail({ user }) {
             </div>
           </div>
         </div>
+      )}
+      {showGantt && (
+        <GanttModal
+          project={project}
+          phases={phases}
+          tasks={tasks}
+          onClose={() => setShowGantt(false)}
+        />
       )}
     </GlobalNav>
   )

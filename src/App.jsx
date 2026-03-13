@@ -77,8 +77,12 @@ function App() {
   // Check if profile is incomplete (missing first_name)
   const needsOnboarding = session && profile && !profile.first_name
 
-  // Check if user still needs to set a password (first-time magic link users)
-  const needsSetPassword = session && profile && profile.first_name && !profile.password_set
+  // Check if user still needs to set a password (first-time magic link users only)
+  // SSO users (Microsoft/Azure) never need a password -- exempt them entirely
+  const isSSOUser = session?.user?.app_metadata?.provider === 'azure' ||
+    session?.user?.app_metadata?.provider === 'microsoft' ||
+    session?.user?.identities?.some(i => i.provider === 'azure')
+  const needsSetPassword = session && profile && profile.first_name && !profile.password_set && !isSSOUser
 
   // Callback for when onboarding completes
   const handleOnboardingComplete = () => {

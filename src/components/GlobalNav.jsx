@@ -240,7 +240,7 @@ function GlobalNav({ user, activeNav, children }) {
                     className="mx-4 h-11 flex items-center gap-4 px-4 py-2 text-left hover:bg-gray-50 transition-colors"
                     style={{ color: '#1D1D1F', borderRadius: '8px' }}
                   >
-                    <Settings size={24} className={activeNav === 'settings' ? 'text-gray-900' : 'text-gray-400'} />
+                    <Settings size={24} className='text-gray-900' />
                     <span 
                       className={`text-base ${activeNav === 'settings' ? 'font-bold' : 'font-normal'}`}
                       style={{ letterSpacing: '0.16px' }}
@@ -323,14 +323,12 @@ function GlobalNav({ user, activeNav, children }) {
                   key={item.id}
                   onClick={() => handleNavClick(item.id)}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left mb-1 transition-colors ${
-                    activeNav === item.id 
-                      ? 'bg-gray-100 font-medium' 
-                      : 'hover:bg-gray-50'
+                    activeNav === item.id ? '' : 'hover:bg-[#F5F5F7]'
                   }`}
-                  style={{ color: activeNav === item.id ? '#1D1D1F' : '#6B7280' }}
+                  style={{ color: '#1D1D1F' }}
                 >
-                  <IconComponent size={24} className={activeNav === item.id ? 'text-gray-900' : 'text-gray-400'} />
-                  <span className="text-sm">{item.label}</span>
+                  <IconComponent size={24} style={{ color: '#1D1D1F' }} />
+                  <span className={`text-sm ${activeNav === item.id ? 'font-semibold' : 'font-normal'}`}>{item.label}</span>
                 </button>
               )
             })}
@@ -342,15 +340,15 @@ function GlobalNav({ user, activeNav, children }) {
           <button 
             onClick={() => handleNavClick('settings')}
             className={`w-full flex items-center gap-3 px-4 py-2.5 transition-colors ${
-              activeNav === 'settings' ? 'bg-gray-100' : 'hover:bg-gray-50'
+              activeNav === 'settings' ? '' : 'hover:bg-[#F5F5F7]'
             }`}
             style={{ 
-              color: activeNav === 'settings' ? '#1D1D1F' : '#6B7280',
+              color: '#1D1D1F',
               borderRadius: '16px'
             }}
           >
-            <Settings size={24} className={activeNav === 'settings' ? 'text-gray-900' : 'text-gray-400'} />
-            <span className="text-sm">Settings</span>
+            <Settings size={24} style={{ color: activeNav === 'settings' ? '#1D1D1F' : '#6B7280' }} />
+            <span className={`text-sm ${activeNav === 'settings' ? 'font-semibold' : 'font-normal'}`}>Settings</span>
           </button>
         </div>
       </aside>
