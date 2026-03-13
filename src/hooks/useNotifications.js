@@ -6,7 +6,6 @@ export function useNotifications(userId) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Fetch notifications
   const fetchNotifications = useCallback(async () => {
     if (!userId) return
 
@@ -41,24 +40,14 @@ export function useNotifications(userId) {
       .channel(`notifications:${userId}`)
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${userId}`
-        },
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
         (payload) => {
           setNotifications(prev => [payload.new, ...prev])
         }
       )
       .on(
         'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${userId}`
-        },
+        { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
         (payload) => {
           setNotifications(prev =>
             prev.map(n => n.id === payload.new.id ? payload.new : n)
@@ -67,16 +56,9 @@ export function useNotifications(userId) {
       )
       .on(
         'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${userId}`
-        },
+        { event: 'DELETE', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` },
         (payload) => {
-          setNotifications(prev =>
-            prev.filter(n => n.id !== payload.old.id)
-          )
+          setNotifications(prev => prev.filter(n => n.id !== payload.old.id))
         }
       )
       .subscribe()
@@ -86,8 +68,13 @@ export function useNotifications(userId) {
     }
   }, [userId])
 
-  // Mark single notification as read
+  // Mark single notification as read -- optimistic update + DB sync
   const markAsRead = async (notificationId) => {
+    // Update local state immediately
+    setNotifications(prev =>
+      prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+    )
+
     const { error: updateError } = await supabase
       .from('notifications')
       .update({ read: true })
@@ -98,8 +85,11 @@ export function useNotifications(userId) {
     }
   }
 
-  // Mark all as read
+  // Mark all as read -- optimistic update + DB sync
   const markAllAsRead = async () => {
+    // Update local state immediately so badge clears instantly
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+
     const { error: updateError } = await supabase
       .from('notifications')
       .update({ read: true })
@@ -108,11 +98,15 @@ export function useNotifications(userId) {
 
     if (updateError) {
       console.error('Error marking all notifications as read:', updateError)
+      // Revert on failure
+      fetchNotifications()
     }
   }
 
   // Delete notification
   const deleteNotification = async (notificationId) => {
+    setNotifications(prev => prev.filter(n => n.id !== notificationId))
+
     const { error: deleteError } = await supabase
       .from('notifications')
       .delete()
@@ -120,10 +114,10 @@ export function useNotifications(userId) {
 
     if (deleteError) {
       console.error('Error deleting notification:', deleteError)
+      fetchNotifications()
     }
   }
 
-  // Computed values
   const unreadCount = notifications.filter(n => !n.read).length
 
   return {
