@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Search, ChevronDown, ChevronRight, ChevronLeft, Checkmark, Close, TrashCan, Locked } from '@carbon/icons-react'
 import GlobalNav from '../components/GlobalNav'
 import { useCurrentProfile } from '../hooks/useProfiles'
 import { usePermissions, getRoleDisplayName } from '../hooks/usePermissions'
@@ -26,13 +27,18 @@ const statusOptions = [
   { value: 'suspended', label: 'Suspended' },
 ]
 
-// Role options (maps to user_role enum)
+// Role options (maps to user_role enum -- only valid DB values)
 const roleOptions = [
   { value: 'admin', label: 'Administrator' },
-  { value: 'project_manager', label: 'Project Manager' },
-  { value: 'contractor', label: 'Contractor' },
-  { value: 'client', label: 'Client' },
   { value: 'viewer', label: 'Viewer' },
+]
+
+// Profile type options (maps to profile_type column)
+const profileTypeOptions = [
+  { value: 'jmpu_employee', label: 'JMPU Employee' },
+  { value: 'general_contractor', label: 'General Contractor' },
+  { value: 'subcontractor', label: 'Subcontractor' },
+  { value: 'client', label: 'Client' },
 ]
 
 // Job title options
@@ -79,6 +85,7 @@ function Profiles({ user }) {
   const [selectedProfileId, setSelectedProfileId] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [profileTypeFilter, setProfileTypeFilter] = useState('')
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [profileToDelete, setProfileToDelete] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
@@ -86,11 +93,15 @@ function Profiles({ user }) {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [bulkEditMode, setBulkEditMode] = useState(false)
+  const [bulkSelectedIds, setBulkSelectedIds] = useState(new Set())
+  const [bulkStatus, setBulkStatus] = useState('')
+  const [bulkApplying, setBulkApplying] = useState(false)
   const itemsPerPage = 13
 
   // Fetch profiles from Supabase
   const { 
-    profiles, 
+    profiles: allProfiles, 
     loading: profilesLoading, 
     error: profilesError,
     refetch: refetchProfiles 
@@ -100,6 +111,11 @@ function Profiles({ user }) {
     sortBy: 'full_name',
     sortOrder: 'asc',
   })
+
+  // Local filter by profile_type
+  const profiles = profileTypeFilter
+    ? allProfiles.filter(p => p.profile_type === profileTypeFilter)
+    : allProfiles
 
   // Fetch selected profile details
   const { 
@@ -117,6 +133,7 @@ function Profiles({ user }) {
     email: '',
     job_title: '',
     role: 'viewer',
+    profile_type: 'jmpu_employee',
     time_zone: 'America/New_York',
     // Company (read-only, from company relation)
     company_name: '',
@@ -141,6 +158,7 @@ function Profiles({ user }) {
         email: selectedProfile.email || '',
         job_title: selectedProfile.job_title || '',
         role: selectedProfile.role || 'viewer',
+        profile_type: selectedProfile.profile_type || 'jmpu_employee',
         time_zone: selectedProfile.time_zone || 'America/New_York',
         company_name: selectedProfile.company?.name || '',
         notification_preferences: {
@@ -180,7 +198,7 @@ function Profiles({ user }) {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, statusFilter])
+  }, [searchQuery, statusFilter, profileTypeFilter])
 
   // Pagination
   const totalPages = Math.ceil(profiles.length / itemsPerPage)
@@ -256,6 +274,7 @@ function Profiles({ user }) {
         phone: formData.phone,
         job_title: formData.job_title,
         role: formData.role,
+        profile_type: formData.profile_type,
         time_zone: formData.time_zone,
       })
 
@@ -292,6 +311,46 @@ function Profiles({ user }) {
     }
   }
 
+  const handleBulkToggle = (profileId) => {
+    setBulkSelectedIds(prev => {
+      const next = new Set(prev)
+      next.has(profileId) ? next.delete(profileId) : next.add(profileId)
+      return next
+    })
+  }
+
+  const handleBulkSelectAll = () => {
+    if (bulkSelectedIds.size === paginatedProfiles.length) {
+      setBulkSelectedIds(new Set())
+    } else {
+      setBulkSelectedIds(new Set(paginatedProfiles.map(p => p.id)))
+    }
+  }
+
+  const handleBulkApply = async () => {
+    if (!bulkStatus || bulkSelectedIds.size === 0) return
+    setBulkApplying(true)
+    try {
+      await Promise.all(
+        [...bulkSelectedIds].map(id => setProfileStatus(id, bulkStatus))
+      )
+      refetchProfiles()
+      setBulkSelectedIds(new Set())
+      setBulkStatus('')
+      setBulkEditMode(false)
+    } catch (err) {
+      console.error('Bulk status update failed:', err)
+    } finally {
+      setBulkApplying(false)
+    }
+  }
+
+  const handleBulkCancel = () => {
+    setBulkEditMode(false)
+    setBulkSelectedIds(new Set())
+    setBulkStatus('')
+  }
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'active':
@@ -307,6 +366,10 @@ function Profiles({ user }) {
 
   const getStatusLabel = (status) => {
     return statusOptions.find(s => s.value === status)?.label || status
+  }
+
+  const getProfileTypeLabel = (type) => {
+    return profileTypeOptions.find(t => t.value === type)?.label || type || 'JMPU Employee'
   }
 
   const getInitials = (profile) => {
@@ -383,7 +446,7 @@ function Profiles({ user }) {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-4 pr-10 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <SearchIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Search size={20} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
               </div>
 
               {/* Status Filter */}
@@ -398,12 +461,28 @@ function Profiles({ user }) {
                     <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
-                <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+              </div>
+
+              {/* Profile Type Filter */}
+              <div className="relative lg:w-44">
+                <select
+                  value={profileTypeFilter}
+                  onChange={(e) => setProfileTypeFilter(e.target.value)}
+                  className="w-full appearance-none bg-white border border-gray-200 rounded-lg px-3 py-2.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                >
+                  <option value="">All Types</option>
+                  {profileTypeOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+                <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
               </div>
 
               {/* Bulk Edit Button */}
               {permissions.canEditProfiles && (
                 <button
+                  onClick={() => bulkEditMode ? handleBulkCancel() : setBulkEditMode(true)}
                   className="px-5 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors"
                   style={{ color: '#111111', border: '1px solid #111111' }}
                   onMouseEnter={(e) => {
@@ -415,7 +494,7 @@ function Profiles({ user }) {
                     e.currentTarget.style.color = '#111111'
                   }}
                 >
-                  Bulk Edit
+                  {bulkEditMode ? 'Cancel' : 'Bulk Edit'}
                 </button>
               )}
             </div>
@@ -441,12 +520,52 @@ function Profiles({ user }) {
               </div>
             )}
 
+            {/* Bulk Action Bar */}
+            {bulkEditMode && (
+              <div className="flex items-center gap-3 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <span className="text-sm text-gray-600 min-w-[80px]">
+                  {bulkSelectedIds.size} selected
+                </span>
+                <div className="relative">
+                  <select
+                    value={bulkStatus}
+                    onChange={(e) => setBulkStatus(e.target.value)}
+                    className="appearance-none bg-white border border-gray-200 rounded-lg px-3 py-2 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  >
+                    <option value="">Set status...</option>
+                    {statusOptions.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                </div>
+                <button
+                  onClick={handleBulkApply}
+                  disabled={!bulkStatus || bulkSelectedIds.size === 0 || bulkApplying}
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors disabled:opacity-40"
+                  style={{ backgroundColor: '#1D1D1F' }}
+                >
+                  {bulkApplying ? 'Applying...' : 'Apply'}
+                </button>
+              </div>
+            )}
+
             {/* Desktop Table */}
             {!profilesLoading && profiles.length > 0 && (
               <div className="hidden lg:block overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-100">
+                      {bulkEditMode && (
+                        <th className="text-left py-3 w-8">
+                          <input
+                            type="checkbox"
+                            checked={bulkSelectedIds.size === paginatedProfiles.length && paginatedProfiles.length > 0}
+                            onChange={handleBulkSelectAll}
+                            className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                          />
+                        </th>
+                      )}
                       <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider w-8"></th>
                       <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                       <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
@@ -459,8 +578,18 @@ function Profiles({ user }) {
                       <tr
                         key={profile.id}
                         className="hover:bg-gray-50 transition-colors cursor-pointer"
-                        onClick={() => handleProfileClick(profile)}
+                        onClick={() => bulkEditMode ? handleBulkToggle(profile.id) : handleProfileClick(profile)}
                       >
+                        {bulkEditMode && (
+                          <td className="py-4" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={bulkSelectedIds.has(profile.id)}
+                              onChange={() => handleBulkToggle(profile.id)}
+                              className="w-4 h-4 rounded border-gray-300 cursor-pointer"
+                            />
+                          </td>
+                        )}
                         <td className="py-4">
                           {/* Avatar */}
                           <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium overflow-hidden">
@@ -483,7 +612,7 @@ function Profiles({ user }) {
                             >
                               {profile.full_name || `${profile.first_name} ${profile.last_name}`}
                             </span>
-                            <ChevronRightIcon className="w-4 h-4 text-gray-400" />
+                            <ChevronRight size={16} className="text-gray-400" />
                           </div>
                           <span className="text-xs text-gray-500">{profile.email}</span>
                         </td>
@@ -492,6 +621,9 @@ function Profiles({ user }) {
                         </td>
                         <td className="py-4">
                           <span className="text-sm text-gray-600">{getRoleDisplayName(profile.role)}</span>
+                          {profile.profile_type && (
+                            <span className="block text-xs text-gray-400">{getProfileTypeLabel(profile.profile_type)}</span>
+                          )}
                           {profile.job_title && (
                             <span className="block text-xs text-gray-400">{profile.job_title}</span>
                           )}
@@ -510,7 +642,7 @@ function Profiles({ user }) {
                               disabled={!permissions.canEditProfiles}
                             >
                               {getStatusLabel(profile.status)}
-                              {permissions.canEditProfiles && <ChevronDownIcon className="w-4 h-4" />}
+                              {permissions.canEditProfiles && <ChevronDown size={16} />}
                             </button>
 
                             {/* Status Dropdown */}
@@ -528,7 +660,7 @@ function Profiles({ user }) {
                                   >
                                     {status.label}
                                     {profile.status === status.value && (
-                                      <CheckIcon className="w-4 h-4" />
+                                      <Checkmark size={16} />
                                     )}
                                   </button>
                                 ))}
@@ -540,7 +672,7 @@ function Profiles({ user }) {
                                       style={{ color: '#EF4444' }}
                                     >
                                       Delete User
-                                      <TrashIcon className="w-4 h-4" />
+                                      <TrashCan size={16} />
                                     </button>
                                   </div>
                                 )}
@@ -582,6 +714,7 @@ function Profiles({ user }) {
                           {profile.full_name || `${profile.first_name} ${profile.last_name}`}
                         </p>
                         <p className="text-xs text-gray-500 truncate">{profile.company?.name || '—'}</p>
+                        <p className="text-xs text-gray-400 truncate">{getProfileTypeLabel(profile.profile_type)}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -594,7 +727,7 @@ function Profiles({ user }) {
                       >
                         {getStatusLabel(profile.status)}
                       </span>
-                      <ChevronRightIcon className="w-4 h-4 text-gray-400" />
+                      <ChevronRight size={16} className="text-gray-400" />
                     </div>
                   </div>
                 ))}
@@ -613,7 +746,7 @@ function Profiles({ user }) {
                     disabled={currentPage === 1}
                     className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <ChevronLeftIcon className="w-4 h-4" />
+                    <ChevronLeft size={16} />
                   </button>
                   <span className="text-sm text-gray-600">
                     Page {currentPage} of {totalPages}
@@ -623,7 +756,7 @@ function Profiles({ user }) {
                     disabled={currentPage === totalPages}
                     className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <ChevronRightIcon className="w-4 h-4" />
+                    <ChevronRight size={16} />
                   </button>
                 </div>
               </div>
@@ -641,7 +774,7 @@ function Profiles({ user }) {
             className="flex items-center gap-1 text-sm mb-4 hover:underline"
             style={{ color: '#1D1D1F' }}
           >
-            <ChevronLeftIcon className="w-4 h-4" />
+            <ChevronLeft size={16} />
             Back to Profiles
           </button>
 
@@ -695,7 +828,7 @@ function Profiles({ user }) {
                         <option key={tab.id} value={tab.id}>{tab.label}</option>
                       ))}
                     </select>
-                    <ChevronDownIcon className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                    <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                   </div>
                 </div>
 
@@ -790,7 +923,7 @@ function Profiles({ user }) {
                               disabled
                               className="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm bg-gray-50"
                             />
-                            <LockIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <Locked size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
                           </div>
                         </div>
 
@@ -809,7 +942,7 @@ function Profiles({ user }) {
                                 <option key={option} value={option}>{option}</option>
                               ))}
                             </select>
-                            <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                           </div>
                         </div>
 
@@ -827,7 +960,25 @@ function Profiles({ user }) {
                                 <option key={option.value} value={option.value}>{option.label}</option>
                               ))}
                             </select>
-                            <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                          </div>
+                        </div>
+
+                        {/* Profile Type */}
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Profile Type</label>
+                          <div className="relative">
+                            <select
+                              value={formData.profile_type}
+                              onChange={(e) => handleFormChange('profile_type', e.target.value)}
+                              disabled={!permissions.canEditProfiles}
+                              className="w-full appearance-none bg-white border border-gray-200 rounded-lg px-3 py-2.5 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:bg-gray-50 disabled:cursor-not-allowed"
+                            >
+                              {profileTypeOptions.map(option => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                              ))}
+                            </select>
+                            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                           </div>
                         </div>
 
@@ -845,7 +996,7 @@ function Profiles({ user }) {
                                 <option key={option} value={option}>{timeZoneLabels[option]}</option>
                               ))}
                             </select>
-                            <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                           </div>
                         </div>
                       </div>
@@ -902,7 +1053,7 @@ function Profiles({ user }) {
                               disabled
                               className="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm bg-gray-50"
                             />
-                            <LockIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <Locked size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400" />
                           </div>
                         </div>
                         {selectedProfile.company.phone && (
@@ -945,7 +1096,7 @@ function Profiles({ user }) {
                       <div className="space-y-3">
                         {[
                           { key: 'project_status_updates', label: 'Project Status Updates' },
-                          { key: 'task_assignments', label: 'Tasks & Assignments' },
+                          { key: 'task_assignments', label: 'Tasks and Assignments' },
                           { key: 'draw_submissions', label: 'Draw Submissions' },
                           { key: 'messages', label: 'Messages' },
                         ].map(notification => (
@@ -1067,7 +1218,7 @@ function Profiles({ user }) {
               onClick={() => setDeleteModalOpen(false)}
               className="absolute top-4 right-4 p-1 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <CloseIcon className="w-5 h-5 text-gray-500" />
+              <Close size={20} className="text-gray-500" />
             </button>
 
             {/* Title */}
@@ -1112,71 +1263,6 @@ function Profiles({ user }) {
         </div>
       )}
     </GlobalNav>
-  )
-}
-
-// Icon Components
-function SearchIcon({ className }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-    </svg>
-  )
-}
-
-function ChevronDownIcon({ className }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-    </svg>
-  )
-}
-
-function ChevronRightIcon({ className }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-    </svg>
-  )
-}
-
-function ChevronLeftIcon({ className }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-    </svg>
-  )
-}
-
-function CheckIcon({ className }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-    </svg>
-  )
-}
-
-function CloseIcon({ className }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-    </svg>
-  )
-}
-
-function TrashIcon({ className }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-    </svg>
-  )
-}
-
-function LockIcon({ className }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-    </svg>
   )
 }
 

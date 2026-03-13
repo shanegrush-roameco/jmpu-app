@@ -131,13 +131,17 @@ function GlobalNav({ user, activeNav, children }) {
                 }}
               >
                 <div 
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium cursor-pointer"
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium cursor-pointer overflow-hidden"
                   style={{ 
                     color: '#111111',
                     border: '1px solid #111111'
                   }}
                 >
-                  {getInitials(userName)}
+                  {profile?.avatar_url ? (
+                    <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    getInitials(userName)
+                  )}
                 </div>
                 {unreadCount > 0 && (
                   <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
@@ -371,7 +375,7 @@ function GlobalNav({ user, activeNav, children }) {
           <div className="flex items-center gap-4">
             <div className="relative">
               <div 
-                className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium cursor-pointer"
+                className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium cursor-pointer overflow-hidden"
                 style={{ 
                   color: '#111111',
                   border: '1px solid #111111'
@@ -379,7 +383,11 @@ function GlobalNav({ user, activeNav, children }) {
                 onClick={toggleNotifications}
                 title="Notifications"
               >
-                {getInitials(userName)}
+                {profile?.avatar_url ? (
+                  <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+                ) : (
+                  getInitials(userName)
+                )}
               </div>
               {unreadCount > 0 && (
                 <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />
@@ -412,14 +420,18 @@ function GlobalNav({ user, activeNav, children }) {
           {/* Right side - Avatar only */}
           <div className="relative z-10" onClick={toggleNotifications}>
             <div 
-              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium cursor-pointer"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium cursor-pointer overflow-hidden"
               style={{ 
                 color: '#111111',
                 border: '1px solid #111111'
               }}
               title="Notifications"
             >
-              {getInitials(userName)}
+              {profile?.avatar_url ? (
+                <img src={profile.avatar_url} alt="avatar" className="w-full h-full object-cover" />
+              ) : (
+                getInitials(userName)
+              )}
             </div>
             {unreadCount > 0 && (
               <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-red-500 rounded-full border-2 border-white" />

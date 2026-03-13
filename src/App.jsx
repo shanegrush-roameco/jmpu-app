@@ -1,6 +1,7 @@
 // src/App.jsx
 // Sprint 12: Added Onboarding for new users
 // Sprint 15: Added QuickBooks OAuth callback route
+// Sprint 18: Added SetPassword gate for first-time magic link users
 // ============================================================================
 
 import { useEffect, useState } from 'react'
@@ -8,6 +9,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import Login from './pages/Login'
 import Onboarding from './pages/Onboarding'
+import SetPassword from './pages/SetPassword'
 import Dashboard from './pages/Dashboard'
 import Projects from './pages/Projects'
 import ProjectDetail from './pages/Projectdetail'
@@ -29,7 +31,7 @@ function App() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name')
+        .select('id, first_name, last_name, password_set')
         .eq('id', userId)
         .single()
 
@@ -75,8 +77,18 @@ function App() {
   // Check if profile is incomplete (missing first_name)
   const needsOnboarding = session && profile && !profile.first_name
 
+  // Check if user still needs to set a password (first-time magic link users)
+  const needsSetPassword = session && profile && profile.first_name && !profile.password_set
+
   // Callback for when onboarding completes
   const handleOnboardingComplete = () => {
+    if (session?.user) {
+      fetchProfile(session.user.id)
+    }
+  }
+
+  // Callback for when set password completes
+  const handleSetPasswordComplete = () => {
     if (session?.user) {
       fetchProfile(session.user.id)
     }
@@ -118,6 +130,22 @@ function App() {
             )
           } 
         />
+
+        {/* Set Password route - for first-time magic link users */}
+        <Route
+          path="/set-password"
+          element={
+            !session ? (
+              <Navigate to="/login" replace />
+            ) : needsOnboarding ? (
+              <Navigate to="/onboarding" replace />
+            ) : needsSetPassword ? (
+              <SetPassword user={session.user} onComplete={handleSetPasswordComplete} />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
         
         {/* Protected routes - require authentication AND completed profile */}
         <Route 
@@ -127,6 +155,8 @@ function App() {
               <Navigate to="/login" replace />
             ) : needsOnboarding ? (
               <Navigate to="/onboarding" replace />
+            ) : needsSetPassword ? (
+              <Navigate to="/set-password" replace />
             ) : (
               <Dashboard user={session.user} />
             )
@@ -139,6 +169,8 @@ function App() {
               <Navigate to="/login" replace />
             ) : needsOnboarding ? (
               <Navigate to="/onboarding" replace />
+            ) : needsSetPassword ? (
+              <Navigate to="/set-password" replace />
             ) : (
               <Projects user={session.user} />
             )
@@ -151,6 +183,8 @@ function App() {
               <Navigate to="/login" replace />
             ) : needsOnboarding ? (
               <Navigate to="/onboarding" replace />
+            ) : needsSetPassword ? (
+              <Navigate to="/set-password" replace />
             ) : (
               <ProjectDetail user={session.user} />
             )
@@ -165,6 +199,8 @@ function App() {
               <Navigate to="/login" replace />
             ) : needsOnboarding ? (
               <Navigate to="/onboarding" replace />
+            ) : needsSetPassword ? (
+              <Navigate to="/set-password" replace />
             ) : (
               <RoleGuard 
                 require="canViewReports"
@@ -184,6 +220,8 @@ function App() {
               <Navigate to="/login" replace />
             ) : needsOnboarding ? (
               <Navigate to="/onboarding" replace />
+            ) : needsSetPassword ? (
+              <Navigate to="/set-password" replace />
             ) : (
               <RoleGuard 
                 require="canViewProfiles"
@@ -203,6 +241,8 @@ function App() {
               <Navigate to="/login" replace />
             ) : needsOnboarding ? (
               <Navigate to="/onboarding" replace />
+            ) : needsSetPassword ? (
+              <Navigate to="/set-password" replace />
             ) : (
               <Settings user={session.user} />
             )
