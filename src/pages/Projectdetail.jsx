@@ -398,9 +398,6 @@ function ProjectActionCenter({ tasks, loading, onToggle, onArchive, onRestore, c
                     )}
                   </div>
                 </div>
-                {task.description && (
-                  <p className="hidden lg:block text-sm text-gray-400 truncate max-w-xs flex-shrink-0">{task.description}</p>
-                )}
                 {task.priority && <PriorityBadge priority={task.priority} />}
               </div>
             ))}
@@ -498,6 +495,12 @@ function ProjectDetail({ user }) {
       }, 500)
     }
   }, [])
+
+  // Sync activeTab when URL tab param changes (e.g., notification click from same page)
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab) setActiveTab(tab)
+  }, [searchParams])
 
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [showGantt, setShowGantt] = useState(false)
