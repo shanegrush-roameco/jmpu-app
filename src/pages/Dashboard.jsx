@@ -220,6 +220,9 @@ function ActionCenter({ tasks, loading, onToggle, onArchive, onRestore, complete
                       )}
                     </div>
                   </div>
+                  {task.description && (
+                    <p className="hidden lg:block text-sm text-gray-400 truncate max-w-xs flex-shrink-0">{task.description}</p>
+                  )}
                   {task.priority && <PriorityBadge priority={task.priority} />}
                 </div>
               )
