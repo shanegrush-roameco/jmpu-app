@@ -12,7 +12,6 @@ import IntegrationsTab from '../components/IntegrationsTab'
 const settingsTabs = [
   { id: 'account', label: 'Account Settings' },
   { id: 'company', label: 'Company Settings' },
-  { id: 'notifications', label: 'Notifications' },
   { id: 'integrations', label: 'Integrations' },
 ]
 
@@ -147,7 +146,6 @@ function Settings({ user }) {
         last_name: formData.last_name,
         phone: formData.phone,
         job_title: formData.job_title,
-        time_zone: formData.time_zone,
       })
 
       // Update notification preferences
@@ -205,6 +203,21 @@ function Settings({ user }) {
       setTimeout(() => setSaveSuccess(false), 3000)
     } catch (err) {
       console.error('Error uploading avatar:', err)
+      setSaveError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleRemoveAvatar = async () => {
+    if (!profile) return
+    try {
+      setSaving(true)
+      setSaveError(null)
+      const { supabase } = await import('../lib/supabase')
+      await supabase.from('profiles').update({ avatar_url: null }).eq('id', profile.id)
+      refetch()
+    } catch (err) {
       setSaveError(err.message)
     } finally {
       setSaving(false)
@@ -348,6 +361,15 @@ function Settings({ user }) {
                   className="hidden"
                 />
               </label>
+              {profile.avatar_url && (
+                <button
+                  onClick={handleRemoveAvatar}
+                  className="text-sm underline"
+                  style={{ color: '#6B7280' }}
+                >
+                  Remove
+                </button>
+              )}
             </div>
           </div>
 

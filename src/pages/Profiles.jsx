@@ -89,11 +89,18 @@ function Profiles({ user }) {
   const [profileTypeFilter, setProfileTypeFilter] = useState('')
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [profileToDelete, setProfileToDelete] = useState(null)
-  const [inviteModalOpen, setInviteModalOpen] = useState(false)
+  const [addProfileModalOpen, setAddProfileModalOpen] = useState(false)
+  const [addProfileLane, setAddProfileLane] = useState(null)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviting, setInviting] = useState(false)
   const [inviteError, setInviteError] = useState(null)
   const [inviteSuccess, setInviteSuccess] = useState(false)
+  const [createForm, setCreateForm] = useState({
+    first_name: '', last_name: '', email: '', phone: '', job_title: '', profile_type: 'jmpu_employee', role: 'viewer'
+  })
+  const [creating, setCreating] = useState(false)
+  const [createError, setCreateError] = useState(null)
+  const [createSuccess, setCreateSuccess] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [openStatusDropdown, setOpenStatusDropdown] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -183,12 +190,13 @@ function Profiles({ user }) {
   useEffect(() => {
     const handleEsc = (e) => {
       if (e.key === 'Escape') {
-        if (deleteModalOpen) setDeleteModalOpen(false)
+        if (addProfileModalOpen) { setAddProfileModalOpen(false); setAddProfileLane(null) }
+        else if (deleteModalOpen) setDeleteModalOpen(false)
       }
     }
     window.addEventListener('keydown', handleEsc)
     return () => window.removeEventListener('keydown', handleEsc)
-  }, [deleteModalOpen])
+  }, [deleteModalOpen, addProfileModalOpen])
 
   // Close status dropdown when clicking outside
   useEffect(() => {
@@ -368,11 +376,48 @@ function Profiles({ user }) {
       if (error) throw error
       setInviteSuccess(true)
       setInviteEmail('')
-      setTimeout(() => { setInviteSuccess(false); setInviteModalOpen(false); refetchProfiles() }, 2000)
+      setTimeout(() => { setInviteSuccess(false); setAddProfileModalOpen(false); setAddProfileLane(null); refetchProfiles() }, 2000)
     } catch (err) {
       setInviteError(err.message)
     } finally {
       setInviting(false)
+    }
+  }
+
+  const handleCreateProfile = async () => {
+    if (!createForm.email.trim() || !createForm.first_name.trim() || !createForm.last_name.trim()) {
+      setCreateError('First name, last name, and email are required.')
+      return
+    }
+    setCreating(true)
+    setCreateError(null)
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .insert({
+          id: crypto.randomUUID(),
+          email: createForm.email.trim(),
+          first_name: createForm.first_name.trim(),
+          last_name: createForm.last_name.trim(),
+          phone: createForm.phone.trim() || null,
+          job_title: createForm.job_title || null,
+          profile_type: createForm.profile_type,
+          role: createForm.role,
+          status: 'active',
+        })
+      if (error) throw error
+      setCreateSuccess(true)
+      setTimeout(() => {
+        setCreateSuccess(false)
+        setAddProfileModalOpen(false)
+        setAddProfileLane(null)
+        setCreateForm({ first_name: '', last_name: '', email: '', phone: '', job_title: '', profile_type: 'jmpu_employee', role: 'viewer' })
+        refetchProfiles()
+      }, 2000)
+    } catch (err) {
+      setCreateError(err.message)
+    } finally {
+      setCreating(false)
     }
   }
 
@@ -430,7 +475,7 @@ function Profiles({ user }) {
             {/* Add Profile Button - Desktop */}
             {permissions.canEditProfiles && (
               <button
-                onClick={() => { setInviteModalOpen(true); setInviteError(null); setInviteSuccess(false) }}
+                onClick={() => { setAddProfileModalOpen(true); setAddProfileLane(null); setInviteError(null); setCreateError(null) }}
                 className="hidden lg:block px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
                 style={{ backgroundColor: '#1D1D1F' }}
               >
@@ -442,7 +487,7 @@ function Profiles({ user }) {
           {/* Add Profile Button - Mobile (full width, above card) */}
           {permissions.canEditProfiles && (
             <button
-              onClick={() => { setInviteModalOpen(true); setInviteError(null); setInviteSuccess(false) }}
+              onClick={() => { setAddProfileModalOpen(true); setAddProfileLane(null); setInviteError(null); setCreateError(null) }}
               className="lg:hidden w-full mb-4 px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
               style={{ backgroundColor: '#1D1D1F' }}
             >
@@ -1223,42 +1268,121 @@ function Profiles({ user }) {
         </>
       )}
 
-      {/* Invite Modal */}
-      {inviteModalOpen && (
+      {/* Add Profile Modal -- two-lane */}
+      {addProfileModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setInviteModalOpen(false)} />
-          <div className="relative bg-white w-full max-w-md p-6" style={{ borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.12)' }}>
-            <button onClick={() => setInviteModalOpen(false)} className="absolute top-4 right-4 p-1 hover:bg-gray-100 rounded-lg transition-colors">
+          <div className="absolute inset-0 bg-black/50" onClick={() => { setAddProfileModalOpen(false); setAddProfileLane(null) }} />
+          <div className="relative bg-white w-full max-w-lg p-6" style={{ borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.12)' }}>
+            <button onClick={() => { setAddProfileModalOpen(false); setAddProfileLane(null) }} className="absolute top-4 right-4 p-1 hover:bg-gray-100 rounded-lg transition-colors">
               <Close size={20} className="text-gray-500" />
             </button>
-            <h3 className="text-lg font-semibold mb-1" style={{ color: '#1D1D1F' }}>Invite Someone</h3>
-            <p className="text-sm text-gray-500 mb-6">They'll receive a magic link to set up their account.</p>
-            <div className="mb-4">
-              <label className="block text-xs text-gray-500 mb-1">Email Address</label>
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
-                placeholder="name@company.com"
-                autoFocus
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-              />
-            </div>
-            {inviteError && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-sm text-red-600">{inviteError}</p>
-              </div>
+
+            {/* Lane picker */}
+            {!addProfileLane && (
+              <>
+                <h3 className="text-lg font-semibold mb-1" style={{ color: '#1D1D1F' }}>Add Profile</h3>
+                <p className="text-sm text-gray-500 mb-6">How would you like to add this person?</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setAddProfileLane('invite')}
+                    className="p-5 border-2 border-gray-200 rounded-xl text-left hover:border-gray-900 transition-colors group"
+                  >
+                    <p className="text-sm font-semibold mb-1 group-hover:text-gray-900" style={{ color: '#1D1D1F' }}>Send Invite</p>
+                    <p className="text-xs text-gray-500">They receive a magic link and set up their own profile on first login. Best for people joining themselves.</p>
+                  </button>
+                  <button
+                    onClick={() => setAddProfileLane('create')}
+                    className="p-5 border-2 border-gray-200 rounded-xl text-left hover:border-gray-900 transition-colors group"
+                  >
+                    <p className="text-sm font-semibold mb-1 group-hover:text-gray-900" style={{ color: '#1D1D1F' }}>Create Profile</p>
+                    <p className="text-xs text-gray-500">You fill in their details now. Best for pre-building your contractor roster before they log in.</p>
+                  </button>
+                </div>
+              </>
             )}
-            {inviteSuccess && (
-              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                <p className="text-sm text-green-700">Invite sent!</p>
-              </div>
+
+            {/* Invite lane */}
+            {addProfileLane === 'invite' && (
+              <>
+                <button onClick={() => setAddProfileLane(null)} className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 mb-4 transition-colors">
+                  <ChevronLeft size={14} /> Back
+                </button>
+                <h3 className="text-lg font-semibold mb-1" style={{ color: '#1D1D1F' }}>Send Invite</h3>
+                <p className="text-sm text-gray-500 mb-6">They'll receive a magic link to set up their account.</p>
+                <div className="mb-4">
+                  <label className="block text-xs text-gray-500 mb-1">Email Address</label>
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
+                    placeholder="name@company.com"
+                    autoFocus
+                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+                  />
+                </div>
+                {inviteError && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg"><p className="text-sm text-red-600">{inviteError}</p></div>}
+                {inviteSuccess && <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg"><p className="text-sm text-green-700">Invite sent!</p></div>}
+                <div className="flex gap-3">
+                  <button onClick={() => { setAddProfileModalOpen(false); setAddProfileLane(null) }} className="flex-1 px-6 py-2.5 bg-transparent rounded-lg text-sm font-medium" style={{ color: '#111111', border: '1px solid #111111' }} onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#111111'; e.currentTarget.style.color = '#FFFFFF' }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#111111' }}>Cancel</button>
+                  <button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()} className="flex-1 px-6 py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-colors disabled:opacity-50" style={{ backgroundColor: '#1D1D1F' }}>{inviting ? 'Sending...' : 'Send Invite'}</button>
+                </div>
+              </>
             )}
-            <div className="flex gap-3">
-              <button onClick={() => setInviteModalOpen(false)} className="flex-1 px-6 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors" style={{ color: '#111111', border: '1px solid #111111' }} onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#111111'; e.currentTarget.style.color = '#FFFFFF' }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#111111' }}>Cancel</button>
-              <button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()} className="flex-1 px-6 py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-colors disabled:opacity-50" style={{ backgroundColor: '#1D1D1F' }}>{inviting ? 'Sending...' : 'Send Invite'}</button>
-            </div>
+
+            {/* Create lane */}
+            {addProfileLane === 'create' && (
+              <>
+                <button onClick={() => setAddProfileLane(null)} className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-700 mb-4 transition-colors">
+                  <ChevronLeft size={14} /> Back
+                </button>
+                <h3 className="text-lg font-semibold mb-1" style={{ color: '#1D1D1F' }}>Create Profile</h3>
+                <p className="text-sm text-gray-500 mb-6">Fill in their details. They can log in once you send them an invite separately.</p>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">First Name <span className="text-red-500">*</span></label>
+                    <input type="text" value={createForm.first_name} onChange={(e) => setCreateForm(p => ({ ...p, first_name: e.target.value }))} placeholder="Mike" className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Last Name <span className="text-red-500">*</span></label>
+                    <input type="text" value={createForm.last_name} onChange={(e) => setCreateForm(p => ({ ...p, last_name: e.target.value }))} placeholder="Johnson" className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Email <span className="text-red-500">*</span></label>
+                    <input type="email" value={createForm.email} onChange={(e) => setCreateForm(p => ({ ...p, email: e.target.value }))} placeholder="mike@company.com" className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Phone</label>
+                    <input type="tel" value={createForm.phone} onChange={(e) => setCreateForm(p => ({ ...p, phone: e.target.value }))} placeholder="(555) 123-4567" className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Job Title</label>
+                    <div className="relative">
+                      <select value={createForm.job_title} onChange={(e) => setCreateForm(p => ({ ...p, job_title: e.target.value }))} className="w-full appearance-none bg-white border border-gray-200 rounded-lg px-3 py-2.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 cursor-pointer">
+                        <option value="">Select title</option>
+                        {jobTitleOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Profile Type</label>
+                    <div className="relative">
+                      <select value={createForm.profile_type} onChange={(e) => setCreateForm(p => ({ ...p, profile_type: e.target.value }))} className="w-full appearance-none bg-white border border-gray-200 rounded-lg px-3 py-2.5 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 cursor-pointer">
+                        {profileTypeOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                      <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+                {createError && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg"><p className="text-sm text-red-600">{createError}</p></div>}
+                {createSuccess && <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg"><p className="text-sm text-green-700">Profile created!</p></div>}
+                <div className="flex gap-3">
+                  <button onClick={() => { setAddProfileModalOpen(false); setAddProfileLane(null) }} className="flex-1 px-6 py-2.5 bg-transparent rounded-lg text-sm font-medium" style={{ color: '#111111', border: '1px solid #111111' }} onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#111111'; e.currentTarget.style.color = '#FFFFFF' }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#111111' }}>Cancel</button>
+                  <button onClick={handleCreateProfile} disabled={creating || !createForm.email.trim() || !createForm.first_name.trim() || !createForm.last_name.trim()} className="flex-1 px-6 py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-colors disabled:opacity-50" style={{ backgroundColor: '#1D1D1F' }}>{creating ? 'Creating...' : 'Create Profile'}</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
