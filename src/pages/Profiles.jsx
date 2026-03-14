@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Search, ChevronDown, ChevronRight, ChevronLeft, Checkmark, Close, TrashCan, Locked } from '@carbon/icons-react'
 import GlobalNav from '../components/GlobalNav'
+import { supabase } from '../lib/supabase'
 import { useCurrentProfile } from '../hooks/useProfiles'
 import { usePermissions, getRoleDisplayName } from '../hooks/usePermissions'
 import { 
@@ -88,6 +89,11 @@ function Profiles({ user }) {
   const [profileTypeFilter, setProfileTypeFilter] = useState('')
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [profileToDelete, setProfileToDelete] = useState(null)
+  const [inviteModalOpen, setInviteModalOpen] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviting, setInviting] = useState(false)
+  const [inviteError, setInviteError] = useState(null)
+  const [inviteSuccess, setInviteSuccess] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [openStatusDropdown, setOpenStatusDropdown] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -275,7 +281,6 @@ function Profiles({ user }) {
         job_title: formData.job_title,
         role: formData.role,
         profile_type: formData.profile_type,
-        time_zone: formData.time_zone,
       })
 
       // Update notification preferences separately
@@ -351,6 +356,26 @@ function Profiles({ user }) {
     setBulkStatus('')
   }
 
+  const handleInvite = async () => {
+    if (!inviteEmail.trim()) return
+    setInviting(true)
+    setInviteError(null)
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email: inviteEmail.trim(),
+        options: { shouldCreateUser: true, emailRedirectTo: `${window.location.origin}/onboarding` },
+      })
+      if (error) throw error
+      setInviteSuccess(true)
+      setInviteEmail('')
+      setTimeout(() => { setInviteSuccess(false); setInviteModalOpen(false); refetchProfiles() }, 2000)
+    } catch (err) {
+      setInviteError(err.message)
+    } finally {
+      setInviting(false)
+    }
+  }
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'active':
@@ -405,6 +430,7 @@ function Profiles({ user }) {
             {/* Add Profile Button - Desktop */}
             {permissions.canEditProfiles && (
               <button
+                onClick={() => { setInviteModalOpen(true); setInviteError(null); setInviteSuccess(false) }}
                 className="hidden lg:block px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
                 style={{ backgroundColor: '#1D1D1F' }}
               >
@@ -416,6 +442,7 @@ function Profiles({ user }) {
           {/* Add Profile Button - Mobile (full width, above card) */}
           {permissions.canEditProfiles && (
             <button
+              onClick={() => { setInviteModalOpen(true); setInviteError(null); setInviteSuccess(false) }}
               className="lg:hidden w-full mb-4 px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
               style={{ backgroundColor: '#1D1D1F' }}
             >
@@ -1194,6 +1221,46 @@ function Profiles({ user }) {
             </div>
           )}
         </>
+      )}
+
+      {/* Invite Modal */}
+      {inviteModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setInviteModalOpen(false)} />
+          <div className="relative bg-white w-full max-w-md p-6" style={{ borderRadius: '16px', boxShadow: '0 4px 24px rgba(0,0,0,0.12)' }}>
+            <button onClick={() => setInviteModalOpen(false)} className="absolute top-4 right-4 p-1 hover:bg-gray-100 rounded-lg transition-colors">
+              <Close size={20} className="text-gray-500" />
+            </button>
+            <h3 className="text-lg font-semibold mb-1" style={{ color: '#1D1D1F' }}>Invite Someone</h3>
+            <p className="text-sm text-gray-500 mb-6">They'll receive a magic link to set up their account.</p>
+            <div className="mb-4">
+              <label className="block text-xs text-gray-500 mb-1">Email Address</label>
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleInvite()}
+                placeholder="name@company.com"
+                autoFocus
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
+              />
+            </div>
+            {inviteError && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-600">{inviteError}</p>
+              </div>
+            )}
+            {inviteSuccess && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-sm text-green-700">Invite sent!</p>
+              </div>
+            )}
+            <div className="flex gap-3">
+              <button onClick={() => setInviteModalOpen(false)} className="flex-1 px-6 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors" style={{ color: '#111111', border: '1px solid #111111' }} onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#111111'; e.currentTarget.style.color = '#FFFFFF' }} onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#111111' }}>Cancel</button>
+              <button onClick={handleInvite} disabled={inviting || !inviteEmail.trim()} className="flex-1 px-6 py-2.5 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-colors disabled:opacity-50" style={{ backgroundColor: '#1D1D1F' }}>{inviting ? 'Sending...' : 'Send Invite'}</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Delete Confirmation Modal */}

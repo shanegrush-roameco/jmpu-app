@@ -210,6 +210,12 @@ function ActionCenter({ tasks, loading, onToggle, onArchive, onRestore, complete
                     <p className="text-sm font-medium truncate" style={{ color: '#1D1D1F' }}>{task.title}</p>
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <span className="text-xs text-gray-500">{task.project?.name || 'Unknown Project'}</span>
+                      {task.assigned_to_profile?.full_name && (
+                        <>
+                          <span className="text-xs text-gray-300">•</span>
+                          <span className="text-xs text-gray-500">{task.assigned_to_profile.full_name}</span>
+                        </>
+                      )}
                       {task.due_date && (
                         <>
                           <span className="text-xs text-gray-300">•</span>
@@ -220,9 +226,6 @@ function ActionCenter({ tasks, loading, onToggle, onArchive, onRestore, complete
                       )}
                     </div>
                   </div>
-                  {task.description && (
-                    <p className="hidden lg:block text-sm text-gray-400 truncate max-w-xs flex-shrink-0">{task.description}</p>
-                  )}
                   {task.priority && <PriorityBadge priority={task.priority} />}
                 </div>
               )
