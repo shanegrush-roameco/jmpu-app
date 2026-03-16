@@ -12,6 +12,8 @@ import { useQuickBooksInvoices } from '../hooks/useQuickBooks'
 import { ChevronDown, Close } from '@carbon/icons-react'
 import AddPermitModal from '../components/modals/AddPermitModal'
 import GanttModal from '../components/modals/GanttModal'
+import TaskModal from '../components/modals/TaskModal'
+import TaskViewModal from '../components/modals/TaskViewModal'
 import { useCompanies, getProjectCompanies } from '../hooks/useCompanies'
 // Mock project data
 const projectData = {
@@ -350,8 +352,9 @@ function PriorityBadge({ priority }) {
 }
 
 // ─── ProjectActionCenter ──────────────────────────────────────────────────────
-function ProjectActionCenter({ tasks, loading, onToggle, onArchive, onRestore, completedSet, archivedSet }) {
+function ProjectActionCenter({ tasks, loading, onToggle, onArchive, onRestore, completedSet, archivedSet, projectId, onTaskUpdated, onViewTask }) {
   const [showArchived, setShowArchived] = useState(false)
+  const [editingTask, setEditingTask] = useState(null)
   const activeTasks = tasks.filter(t => !t.is_archived && !archivedSet.has(t.id) && t.status !== 'completed' && !completedSet.has(t.id))
   const completedTasks = tasks.filter(t => !t.is_archived && !archivedSet.has(t.id) && (t.status === 'completed' || completedSet.has(t.id)))
   const archivedTasks = tasks.filter(t => t.is_archived || archivedSet.has(t.id))
@@ -377,14 +380,17 @@ function ProjectActionCenter({ tasks, loading, onToggle, onArchive, onRestore, c
           <>
             {/* Active */}
             {activeTasks.map(task => (
-              <div key={task.id} className="flex items-center gap-4 px-6 py-3.5 hover:bg-gray-50 transition-colors">
+              <div key={task.id} className="flex items-center gap-4 px-6 py-3.5 hover:bg-gray-50 transition-colors group">
                 <button
                   onClick={() => onToggle(task.id, task.status)}
                   className="w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors hover:border-gray-400"
                   style={{ borderColor: '#D1D5DB' }}
                 />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate" style={{ color: '#1D1D1F' }}>{task.title}</p>
+                <div
+                  className="flex-1 min-w-0 cursor-pointer"
+                  onClick={() => onViewTask?.(task)}
+                >
+                  <p className="text-sm font-medium truncate hover:underline" style={{ color: '#1D1D1F' }}>{task.title}</p>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {task.assigned_to_profile?.full_name && (
                       <span className="text-xs text-gray-500">{task.assigned_to_profile.full_name}</span>
@@ -400,6 +406,12 @@ function ProjectActionCenter({ tasks, loading, onToggle, onArchive, onRestore, c
                   </div>
                 </div>
                 {task.priority && <PriorityBadge priority={task.priority} />}
+                <button
+                  onClick={() => onViewTask?.(task)}
+                  className="text-xs font-medium text-gray-300 hover:text-gray-600 transition-colors px-3 py-1 rounded-lg hover:bg-gray-100 flex-shrink-0 opacity-0 group-hover:opacity-100"
+                >
+                  View
+                </button>
               </div>
             ))}
 
@@ -461,6 +473,18 @@ function ProjectActionCenter({ tasks, loading, onToggle, onArchive, onRestore, c
           </>
         )}
       </div>
+
+      {/* Edit Task Modal */}
+      <TaskModal
+        isOpen={!!editingTask}
+        onClose={() => setEditingTask(null)}
+        task={editingTask}
+        projectId={projectId}
+        onSuccess={() => {
+          setEditingTask(null)
+          onTaskUpdated?.()
+        }}
+      />
     </div>
   )
 }
@@ -505,6 +529,7 @@ function ProjectDetail({ user }) {
 
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [showGantt, setShowGantt] = useState(false)
+  const [viewTask, setViewTask] = useState(null)
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
   const [onHoldModalOpen, setOnHoldModalOpen] = useState(false)
   const [blockedModalOpen, setBlockedModalOpen] = useState(false)
@@ -1333,6 +1358,9 @@ function ProjectDetail({ user }) {
                   onRestore={restoreTask}
                   completedSet={completedTaskIds}
                   archivedSet={archivedTaskIds}
+                  projectId={projectId}
+                  onTaskUpdated={refetchTasks}
+                  onViewTask={(task) => setViewTask(task)}
                 />
               )}
 
@@ -2279,6 +2307,15 @@ function ProjectDetail({ user }) {
             )}
           </div>
           </>) } {/* end activeTab === 'overview' */}
+
+      {/* Task View Modal */}
+      <TaskViewModal
+        isOpen={!!viewTask}
+        onClose={() => setViewTask(null)}
+        task={viewTask}
+        projectId={projectId}
+        onSuccess={() => { setViewTask(null); refetchTasks(); }}
+      />
 
       {/* Edit Project Modal */}
       <EditProjectModal

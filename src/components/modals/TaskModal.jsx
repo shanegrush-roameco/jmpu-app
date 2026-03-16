@@ -50,6 +50,7 @@ export default function TaskModal({
     priority: 'medium',
     due_date: '',
     assigned_to: '',
+    completion_percent: 0,
   });
 
   const [errors, setErrors] = useState({});
@@ -66,6 +67,7 @@ export default function TaskModal({
         priority: task.priority || 'medium',
         due_date: task.due_date || '',
         assigned_to: task.assigned_to || '',
+        completion_percent: task.completion_percent ?? 0,
       });
     } else {
       setFormData({
@@ -75,6 +77,7 @@ export default function TaskModal({
         priority: 'medium',
         due_date: '',
         assigned_to: '',
+        completion_percent: 0,
       });
     }
   }, [task, isOpen]);
@@ -121,6 +124,7 @@ export default function TaskModal({
         priority: formData.priority,
         due_date: formData.due_date || null,
         assigned_to: formData.assigned_to || null,
+        completion_percent: Math.min(100, Math.max(0, parseInt(formData.completion_percent) || 0)),
       };
 
       let result;
@@ -320,6 +324,34 @@ export default function TaskModal({
                   </select>
                   <ChevronIcon />
                 </div>
+              </div>
+            </div>
+
+            {/* Completion % */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Completion %
+              </label>
+              <div className="flex items-center gap-4">
+                <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{
+                      width: `${formData.completion_percent}%`,
+                      backgroundColor: formData.completion_percent === 100 ? '#22C55E' : formData.completion_percent >= 30 ? '#EAB308' : '#9CA3AF'
+                    }}
+                  />
+                </div>
+                <input
+                  type="number"
+                  name="completion_percent"
+                  min="0"
+                  max="100"
+                  value={formData.completion_percent}
+                  onChange={handleChange}
+                  className="w-16 text-sm text-right px-2 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F]"
+                  style={{ fontSize: '16px' }}
+                />
               </div>
             </div>
           </div>
