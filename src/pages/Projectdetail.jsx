@@ -979,30 +979,7 @@ function ProjectDetail({ user }) {
             {/* Action Buttons */}
             <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
               {activeTab === 'financials' ? (
-                <>
-                  <button 
-                    onClick={() => setInvoiceModalOpen(true)}
-                    className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
-                    style={{ backgroundColor: '#1D1D1F' }}
-                  >
-                    New Invoice
-                  </button>
-                  <button 
-                    onClick={() => setPaymentModalOpen(true)}
-                    className="w-full lg:w-auto px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
-                    style={{ color: '#111111', border: '1px solid #111111' }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#111111'
-                      e.currentTarget.style.color = '#FFFFFF'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent'
-                      e.currentTarget.style.color = '#111111'
-                    }}
-                  >
-                    Pay
-                  </button>
-                </>
+                null
               ) : activeTab === 'permits' ? (
                 <button 
                   onClick={() => setAddPermitModalOpen(true)}
@@ -1590,15 +1567,17 @@ function ProjectDetail({ user }) {
               {/* Financials Tab Content */}
               {activeTab === 'financials' && (
                 <div className="p-6">
-                {/* Financial Validation - Sprint 16 */}
-                  <FinancialValidation
-                    projectId={projectId}
-                    userRole={user?.role || 'viewer'}
-                  />
                   {/* Invoices Section */}
                   <div className="mb-8">
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
-                      <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Invoices</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-semibold" style={{ color: '#1D1D1F' }}>Invoices</h3>
+                        {!invoicesLoading && invoices.length > 0 && (
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: '#1D1D1F', color: '#FFFFFF' }}>
+                            {invoices.length}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex flex-col lg:flex-row gap-3">
                         <div className="relative flex-1 lg:flex-none">
                           <input
@@ -1635,10 +1614,11 @@ function ProjectDetail({ user }) {
                         <thead>
                           <tr className="border-b border-gray-100">
                             <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice #</th>
+                            <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
                             <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Due</th>
                             <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                            <th className="text-left py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
                             <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th className="text-right py-3 px-4 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
@@ -1661,19 +1641,24 @@ function ProjectDetail({ user }) {
                               return matchSearch && matchFilter
                             })
                             if (filtered.length === 0) return (
-                              <tr><td colSpan={5} className="py-8 text-center text-sm text-gray-400">No invoices found.</td></tr>
+                              <tr><td colSpan={6} className="py-12 text-center">
+                                <p className="text-sm text-gray-400">No invoices linked to this project yet.</p>
+                                <p className="text-xs text-gray-300 mt-1">Invoices are matched automatically when you sync QuickBooks.</p>
+                              </td></tr>
                             )
                             return filtered.map((inv) => (
                               <tr key={inv.id} className="hover:bg-gray-50 transition-colors">
                                 <td className="py-3 px-4">
-                                  <span className="text-sm font-medium underline cursor-pointer" style={{ color: '#1D1D1F' }}>
+                                  <span className="text-sm font-medium" style={{ color: '#1D1D1F' }}>
                                     {inv.invoice_number || inv.external_doc_number || '—'}
                                   </span>
                                 </td>
                                 <td className="py-3 px-4">
-                                  <span className="text-sm text-gray-600 flex items-center gap-1">
+                                  <span className="text-sm text-gray-600">{inv.customer_name || '—'}</span>
+                                </td>
+                                <td className="py-3 px-4">
+                                  <span className="text-sm text-gray-600">
                                     {inv.due_date ? new Date(inv.due_date).toLocaleDateString() : '—'}
-                                    <CalendarIcon className="w-4 h-4 text-gray-400" />
                                   </span>
                                 </td>
                                 <td className="py-3 px-4">
@@ -1681,13 +1666,21 @@ function ProjectDetail({ user }) {
                                     {inv.status ? inv.status.charAt(0).toUpperCase() + inv.status.slice(1).toLowerCase() : '—'}
                                   </span>
                                 </td>
-                                <td className="py-3 px-4">
-                                  <span className="text-sm text-gray-600">{inv.customer_name || '—'}</span>
-                                </td>
                                 <td className="py-3 px-4 text-right">
                                   <span className="text-sm text-gray-900">
                                     ${(inv.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </span>
+                                </td>
+                                <td className="py-3 px-4 text-right">
+                                  <a
+                                    href={`https://app.qbo.intuit.com/app/invoice?txnId=${inv.external_id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-end gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors"
+                                  >
+                                    <EyeIcon className="w-4 h-4" />
+                                    View in QB
+                                  </a>
                                 </td>
                               </tr>
                             ))
@@ -1701,6 +1694,12 @@ function ProjectDetail({ user }) {
                       {invoicesLoading && (
                         <div className="py-8 text-center text-sm text-gray-400">Loading invoices...</div>
                       )}
+                      {!invoicesLoading && invoices.length === 0 && (
+                        <div className="py-12 text-center">
+                          <p className="text-sm text-gray-400">No invoices linked to this project yet.</p>
+                          <p className="text-xs text-gray-300 mt-1">Invoices are matched automatically when you sync QuickBooks.</p>
+                        </div>
+                      )}
                       {!invoicesLoading && invoices.map((inv) => (
                         <div key={inv.id} className="flex items-center justify-between py-3">
                           <div>
@@ -1708,10 +1707,18 @@ function ProjectDetail({ user }) {
                               {inv.invoice_number || inv.external_doc_number || '—'}
                             </span>
                             <p className="text-xs text-gray-500 mt-0.5">
-                              ${(inv.total_amount || 0).toLocaleString()} · {inv.status || '—'}
+                              {inv.customer_name || '—'} · ${(inv.total_amount || 0).toLocaleString()} · {inv.status || '—'}
                             </p>
                           </div>
-                          <ChevronRightIcon className="w-5 h-5 text-gray-400" />
+                          <a
+                            href={`https://app.qbo.intuit.com/app/invoice?txnId=${inv.external_id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-900 transition-colors flex-shrink-0 ml-3"
+                          >
+                            <EyeIcon className="w-4 h-4" />
+                            View
+                          </a>
                         </div>
                       ))}
                     </div>
@@ -1719,7 +1726,7 @@ function ProjectDetail({ user }) {
                     {/* Row count */}
                     {!invoicesLoading && invoices.length > 0 && (
                       <div className="mt-4 pt-4 border-t border-gray-100">
-                        <span className="text-sm text-gray-500">{invoices.length} invoice{invoices.length !== 1 ? 's' : ''}</span>
+                        <span className="text-sm text-gray-500">{invoices.length} invoice{invoices.length !== 1 ? 's' : ''} synced from QuickBooks</span>
                       </div>
                     )}
                   </div>
