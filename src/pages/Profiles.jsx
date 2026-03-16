@@ -662,7 +662,7 @@ function Profiles({ user }) {
                             />
                           </td>
                         )}
-                        <td className="py-4">
+                        <td className="py-4 pr-4">
                           {/* Avatar */}
                           <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium overflow-hidden">
                             {profile.avatar_url ? (

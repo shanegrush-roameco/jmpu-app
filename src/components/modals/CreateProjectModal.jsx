@@ -1,11 +1,14 @@
-// src/components/modals/CreateProjectModal.jsx
-// Modal for creating new projects
-// Matches approved design: Customer, Asset #, Address, City, State, ZIP, Date Received
+// src/components/modals/EditProjectModal.jsx
+// Modal for editing an existing project
+// Pre-populates from live project record, adds Status field and company assignment
+// Mirrors CreateProjectModal UX exactly
 // ============================================================================
 
 import { useState, useEffect } from 'react';
 import { Close, ChevronDown } from '@carbon/icons-react';
-import { createProject } from '../../hooks/useProjects';
+import { updateProject } from '../../hooks/useProjects';
+import { useCompanies, getProjectCompanies, setProjectCompanies } from '../../hooks/useCompanies';
+import CompanyCombobox from '../CompanyCombobox.jsx';
 
 const US_STATES = [
   { value: 'AL', label: 'Alabama' }, { value: 'AK', label: 'Alaska' },
@@ -35,10 +38,16 @@ const US_STATES = [
   { value: 'WI', label: 'Wisconsin' }, { value: 'WY', label: 'Wyoming' },
 ];
 
-const inputBase = 'w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F]';
+const PROJECT_STATUSES = [
+  { value: 'active',    label: 'Active' },
+  { value: 'completed', label: 'Complete' },
+  { value: 'cancelled', label: 'Cancelled' },
+];
+
+const inputBase  = 'w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F]';
 const inputError = 'w-full px-4 py-2 rounded-xl border border-red-300 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F]';
 const inputStyle = { fontSize: '16px', letterSpacing: '0.16px' };
-const labelBase = 'block text-sm font-medium text-gray-700 mb-1.5';
+const labelBase  = 'block text-sm font-medium text-gray-700 mb-1.5';
 
 function ChevronIcon() {
   return (
@@ -48,20 +57,47 @@ function ChevronIcon() {
   );
 }
 
-export default function CreateProjectModal({ isOpen, onClose, onSuccess }) {
+export default function EditProjectModal({ isOpen, onClose, onSuccess, project }) {
+  const { companies } = useCompanies();
+  const [selectedCompanies, setSelectedCompanies] = useState([]);
+
   const [formData, setFormData] = useState({
-    name: '',
-    asset_number: '',
+    name:          '',
+    asset_number:  '',
     address_line1: '',
-    city: '',
-    state: 'MI',
-    zip_code: '',
-    date_received: '',
+    city:          '',
+    state:         'MI',
+    zip_code:      '',
+    start_date:    '',
+    status:        'active',
   });
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Pre-populate form and load existing company assignments
+  useEffect(() => {
+    if (isOpen && project) {
+      setFormData({
+        name:          project.name          || '',
+        asset_number:  project.asset_number  || '',
+        address_line1: project.address_line1 || '',
+        city:          project.city          || '',
+        state:         project.state         || 'MI',
+        zip_code:      project.zip_code      || '',
+        start_date:    project.start_date ? project.start_date.slice(0, 10) : '',
+        status:        project.status        || 'active',
+      });
+      setErrors({});
+
+      // Load existing company assignments
+      getProjectCompanies(project.id).then(existing => {
+        setSelectedCompanies(existing || []);
+      });
+    }
+  }, [isOpen, project]);
+
+  // ESC to close
   useEffect(() => {
     const handleKeyDown = (e) => { if (e.key === 'Escape') onClose(); };
     if (isOpen) document.addEventListener('keydown', handleKeyDown);
@@ -76,9 +112,9 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }) {
 
   const validate = () => {
     const newErrors = {};
-    if (!formData.name.trim()) newErrors.name = 'Customer name is required';
+    if (!formData.name.trim())          newErrors.name          = 'Customer name is required';
     if (!formData.address_line1.trim()) newErrors.address_line1 = 'Address is required';
-    if (!formData.city.trim()) newErrors.city = 'City is required';
+    if (!formData.city.trim())          newErrors.city          = 'City is required';
     if (!formData.zip_code.trim()) {
       newErrors.zip_code = 'ZIP code is required';
     } else if (!/^\d{5}(-\d{4})?$/.test(formData.zip_code)) {
@@ -93,23 +129,26 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }) {
     if (!validate()) return;
     setIsSubmitting(true);
     try {
-      const projectData = {
-        name: formData.name.trim(),
-        asset_number: formData.asset_number.trim() || null,
+      const updates = {
+        name:          formData.name.trim(),
+        asset_number:  formData.asset_number.trim() || null,
         address_line1: formData.address_line1.trim(),
-        city: formData.city.trim(),
-        state: formData.state,
-        zip_code: formData.zip_code.trim(),
-        date_received: formData.date_received || null,
-        status: 'planning',
+        city:          formData.city.trim(),
+        state:         formData.state,
+        zip_code:      formData.zip_code.trim(),
+        start_date:    formData.start_date || null,
+        status:        formData.status,
       };
-      const newProject = await createProject(projectData);
-      onSuccess?.(newProject);
+      const updated = await updateProject(project.id, updates);
+
+      // Sync company assignments (delete + reinsert via hook)
+      await setProjectCompanies(project.id, selectedCompanies.map(c => c.id));
+
+      onSuccess?.(updated);
       onClose();
-      setFormData({ name: '', asset_number: '', address_line1: '', city: '', state: 'MI', zip_code: '', date_received: '' });
     } catch (error) {
-      console.error('Error creating project:', error);
-      setErrors({ submit: error.message || 'Failed to create project' });
+      console.error('Error updating project:', error);
+      setErrors({ submit: error.message || 'Failed to save changes' });
     } finally {
       setIsSubmitting(false);
     }
@@ -121,10 +160,10 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-white rounded-2xl w-full max-w-md overflow-hidden" style={{ boxShadow: '2px 4px 12px rgba(0,0,0,0.08)' }}>
-        
+
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-[#1D1D1F]">New Project</h2>
+          <h2 className="text-lg font-semibold text-[#1D1D1F]">Edit Project</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <Close size={20} className="text-gray-500" />
           </button>
@@ -132,13 +171,15 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }) {
 
         {/* Form */}
         <form onSubmit={handleSubmit}>
-          <div className="p-5 space-y-4">
+          <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
             {errors.submit && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">{errors.submit}</div>
+              <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+                {errors.submit}
+              </div>
             )}
 
             <div>
-              <label className={labelBase}>Customer</label>
+              <label className={labelBase}>Customer <span style={{ color: '#E8500A' }}>*</span></label>
               <input type="text" name="name" value={formData.name} onChange={handleChange}
                 placeholder="Name" autoFocus className={errors.name ? inputError : inputBase} style={inputStyle} />
               {errors.name && <p className="mt-1 text-sm text-red-500">{errors.name}</p>}
@@ -151,14 +192,23 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }) {
             </div>
 
             <div>
-              <label className={labelBase}>Address</label>
+              <label className={labelBase}>Companies</label>
+              <CompanyCombobox
+                companies={companies}
+                selected={selectedCompanies}
+                onChange={setSelectedCompanies}
+              />
+            </div>
+
+            <div>
+              <label className={labelBase}>Address <span style={{ color: '#E8500A' }}>*</span></label>
               <input type="text" name="address_line1" value={formData.address_line1} onChange={handleChange}
                 placeholder="999 Road Rd." className={errors.address_line1 ? inputError : inputBase} style={inputStyle} />
               {errors.address_line1 && <p className="mt-1 text-sm text-red-500">{errors.address_line1}</p>}
             </div>
 
             <div>
-              <label className={labelBase}>City</label>
+              <label className={labelBase}>City <span style={{ color: '#E8500A' }}>*</span></label>
               <input type="text" name="city" value={formData.city} onChange={handleChange}
                 placeholder="City Name" className={errors.city ? inputError : inputBase} style={inputStyle} />
               {errors.city && <p className="mt-1 text-sm text-red-500">{errors.city}</p>}
@@ -178,16 +228,29 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }) {
             </div>
 
             <div>
-              <label className={labelBase}>ZIP</label>
+              <label className={labelBase}>ZIP <span style={{ color: '#E8500A' }}>*</span></label>
               <input type="text" name="zip_code" value={formData.zip_code} onChange={handleChange}
                 placeholder="99999" className={errors.zip_code ? inputError : inputBase} style={inputStyle} />
               {errors.zip_code && <p className="mt-1 text-sm text-red-500">{errors.zip_code}</p>}
             </div>
 
             <div>
-              <label className={labelBase}>Date Received</label>
-              <input type="date" name="date_received" value={formData.date_received} onChange={handleChange}
+              <label className={labelBase}>Start Date</label>
+              <input type="date" name="start_date" value={formData.start_date} onChange={handleChange}
                 className={inputBase} style={inputStyle} />
+            </div>
+
+            <div>
+              <label className={labelBase}>Status</label>
+              <div className="relative">
+                <select name="status" value={formData.status} onChange={handleChange}
+                  className={`${inputBase} appearance-none pr-10 bg-white`} style={inputStyle}>
+                  {PROJECT_STATUSES.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+                <ChevronIcon />
+              </div>
             </div>
           </div>
 
@@ -202,7 +265,7 @@ export default function CreateProjectModal({ isOpen, onClose, onSuccess }) {
             </button>
             <button type="submit" disabled={isSubmitting}
               className="px-5 py-2.5 text-sm font-medium text-white bg-[#1D1D1F] hover:bg-[#1D1D1F]/90 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-              {isSubmitting ? 'Creating...' : 'Create Project'}
+              {isSubmitting ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
         </form>

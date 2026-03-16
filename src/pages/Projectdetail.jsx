@@ -12,6 +12,7 @@ import { useQuickBooksInvoices } from '../hooks/useQuickBooks'
 import { ChevronDown, Close } from '@carbon/icons-react'
 import AddPermitModal from '../components/modals/AddPermitModal'
 import GanttModal from '../components/modals/GanttModal'
+import { useCompanies, getProjectCompanies } from '../hooks/useCompanies'
 // Mock project data
 const projectData = {
   id: '1283614-1',
@@ -518,6 +519,8 @@ function ProjectDetail({ user }) {
     customer: true,
     scope: true
   })
+  const [scopeCompanyFilter, setScopeCompanyFilter] = useState('All')
+  const [projectCompanies, setProjectCompanies] = useState([])
   const [expandedContacts, setExpandedContacts] = useState({})
   const [expandedContractors, setExpandedContractors] = useState({})
   const [editFormData, setEditFormData] = useState({
@@ -677,6 +680,25 @@ function ProjectDetail({ user }) {
   const [archivedTaskIds, setArchivedTaskIds] = useState(new Set())
   const [showArchived, setShowArchived] = useState(false)
 
+  // Load companies assigned to this project for Scope filter
+  useEffect(() => {
+    if (!projectId) return
+    getProjectCompanies(projectId).then(companies => {
+      setProjectCompanies(companies || [])
+    })
+  }, [projectId])
+
+  const updateScopePercent = async (taskId, percent) => {
+    const value = Math.min(100, Math.max(0, parseInt(percent) || 0))
+    await supabase.from('tasks').update({ completion_percent: value }).eq('id', taskId)
+    refetchTasks()
+  }
+
+  const updateTaskCompany = async (taskId, companyId) => {
+    await supabase.from('tasks').update({ contractor_company_id: companyId || null }).eq('id', taskId)
+    refetchTasks()
+  }
+
   const toggleTaskComplete = useCallback(async (taskId, currentStatus) => {
     const newStatus = currentStatus === 'completed' ? 'in_progress' : 'completed'
     setCompletedTaskIds(prev => {
@@ -835,6 +857,44 @@ function ProjectDetail({ user }) {
     setProjectFiles(data || [])
     setFilesLoading(false)
   }, [projectId])
+
+  useEffect(() => { fetchFiles() }, [fetchFiles])
+
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState(null)
+
+  const handleUploadFiles = async (fileList, folder = 'files') => {
+    if (!fileList || fileList.length === 0) return
+    setUploading(true)
+    setUploadError(null)
+    const files = Array.from(fileList)
+    try {
+      for (const file of files) {
+        const ext = file.name.split('.').pop().toLowerCase()
+        const filePath = `${projectId}/${folder}/${crypto.randomUUID()}.${ext}`
+        const { error: storageError } = await supabase.storage
+          .from('project-files')
+          .upload(filePath, file)
+        if (storageError) throw storageError
+        const { error: dbError } = await supabase.from('files').insert({
+          project_id: projectId,
+          name: file.name,
+          file_path: filePath,
+          file_type: ext.toUpperCase(),
+          file_size: file.size,
+          folder: folder,
+          uploaded_by: user?.id || null,
+        })
+        if (dbError) throw dbError
+      }
+      await fetchFiles()
+    } catch (err) {
+      console.error('Upload error:', err)
+      setUploadError(err.message || 'Upload failed')
+    } finally {
+      setUploading(false)
+    }
+  }
 
   useEffect(() => { fetchFiles() }, [fetchFiles])
 
@@ -1391,166 +1451,107 @@ function ProjectDetail({ user }) {
               {/* Files & Notes Tab Content */}
               {activeTab === 'files' && (
                 <div className="p-6">
-                  {/* Drag & Drop Zone */}
-                  <div 
-                    className="border-2 border-dashed border-gray-300 rounded-lg p-8 lg:p-12 text-center mb-8"
-                    onDragOver={(e) => {
-                      e.preventDefault()
-                      e.currentTarget.classList.add('border-blue-400', 'bg-blue-50')
-                    }}
-                    onDragLeave={(e) => {
-                      e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50')
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault()
-                      e.currentTarget.classList.remove('border-blue-400', 'bg-blue-50')
-                      // Handle file drop here
-                      console.log('Files dropped:', e.dataTransfer.files)
-                    }}
+                  {/* Upload Zone */}
+                  <div
+                    className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center mb-6"
+                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-gray-400', 'bg-gray-50') }}
+                    onDragLeave={(e) => { e.currentTarget.classList.remove('border-gray-400', 'bg-gray-50') }}
+                    onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-gray-400', 'bg-gray-50'); handleUploadFiles(e.dataTransfer.files, 'files') }}
                   >
-                    <h3 className="text-lg font-semibold mb-2" style={{ color: '#1D1D1F' }}>
-                      Drag & Drop Files here
-                    </h3>
-                    <p className="text-sm text-gray-500 mb-4">
-                      Files Supported - .XLS, .PDF, .HEIC, .JPG, .PNG
-                    </p>
-                    <button 
-                      className="px-6 py-2.5 bg-transparent rounded-lg text-sm font-medium transition-colors"
+                    <p className="text-base font-medium text-gray-700 mb-1">Drag & Drop Files here</p>
+                    <p className="text-sm text-gray-400 mb-4">Photos, Documents -- .XLS, .PDF, .HEIC, .JPG, .PNG &middot; Max 10MB</p>
+                    {uploadError && <p className="text-sm text-red-500 mb-3">{uploadError}</p>}
+                    <button
+                      onClick={() => document.getElementById('files-file-input').click()}
+                      disabled={uploading}
+                      className="px-6 py-2 bg-transparent rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
                       style={{ color: '#111111', border: '1px solid #111111' }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#111111'
-                        e.currentTarget.style.color = '#FFFFFF'
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent'
-                        e.currentTarget.style.color = '#111111'
-                      }}
+                      onMouseEnter={(e) => { if (!uploading) { e.currentTarget.style.backgroundColor = '#111111'; e.currentTarget.style.color = '#FFFFFF' }}}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#111111' }}
                     >
-                      Upload
+                      {uploading ? 'Uploading...' : 'Upload'}
                     </button>
-                    <p className="text-xs text-gray-400 mt-4">
-                      Max File Size: 10MB
-                    </p>
+                    <input
+                      id="files-file-input"
+                      type="file"
+                      accept=".xls,.xlsx,.pdf,.heic,.jpg,.jpeg,.png"
+                      className="hidden"
+                      multiple
+                      onChange={e => handleUploadFiles(e.target.files, 'files')}
+                    />
                   </div>
 
-                  {/* Recently Added Files Section */}
+                  {/* Files Table */}
                   <div>
-                    {/* Header with Search and Filter */}
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-                      <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>
-                        Recently Added Files
-                      </h3>
-                      <div className="flex flex-col lg:flex-row gap-3">
-                        <div className="relative">
-                          <input
-                            type="text"
-                            placeholder="Search"
-                            value={fileSearch}
-                            onChange={e => setFileSearch(e.target.value)}
-                            className="w-full lg:w-80 pl-4 pr-10 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F]"
-                            style={{ fontSize: '16px', letterSpacing: '0.16px' }}
-                          />
-                          <SearchIcon className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-                        </div>
-                        <div className="relative">
-                          <select
-                            value={fileTypeFilter}
-                            onChange={e => setFileTypeFilter(e.target.value)}
-                            className="px-4 py-2 pr-10 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F] appearance-none bg-white"
-                            style={{ fontSize: '16px', letterSpacing: '0.16px' }}
-                          >
-                            <option value="All">All Files</option>
-                            <option value="Photos">Photos</option>
-                            <option value="Documents">Documents</option>
-                          </select>
-                          <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
-                            <ChevronDown size={16} className="text-gray-500" />
-                          </div>
-                        </div>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-semibold" style={{ color: '#1D1D1F' }}>Uploaded Documents</h3>
+                        {projectFiles.filter(f => f.folder === 'files' || !f.folder).length > 0 && (
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: '#1D1D1F', color: '#FFFFFF' }}>
+                            {projectFiles.filter(f => f.folder === 'files' || !f.folder).length}
+                          </span>
+                        )}
                       </div>
                     </div>
 
-                    {/* File List */}
                     {filesLoading ? (
                       <div className="py-12 text-center text-sm text-gray-400">Loading files...</div>
                     ) : (() => {
-                      const filtered = projectFiles.filter(f => {
-                        const matchSearch = !fileSearch ||
-                          f.name?.toLowerCase().includes(fileSearch.toLowerCase())
-                        const ext = f.file_type?.toLowerCase() || f.name?.split('.').pop()?.toLowerCase() || ''
-                        const matchType = fileTypeFilter === 'All' ||
-                          (fileTypeFilter === 'Photos' && ['jpg','jpeg','png','heic','webp'].includes(ext)) ||
-                          (fileTypeFilter === 'Documents' && ['pdf','xls','xlsx'].includes(ext))
-                        return matchSearch && matchType
-                      })
+                      const filtered = projectFiles.filter(f => f.folder === 'files' || !f.folder)
                       if (filtered.length === 0) return (
-                        <div className="py-12 text-center text-sm text-gray-400">No files found for this project.</div>
+                        <div className="py-12 text-center text-sm text-gray-400">No files uploaded yet.</div>
                       )
                       return (
-                        <div className="divide-y divide-gray-100">
-                          {filtered.map((file) => {
-                            const ext = file.file_type || file.name?.split('.').pop()?.toUpperCase() || 'FILE'
-                            const fileUrl = getFileUrl(file.file_path)
-                            return (
-                              <div key={file.id} className="py-4">
-                                {/* Desktop */}
-                                <div className="hidden lg:flex lg:items-center lg:justify-between">
-                                  <div className="flex items-center gap-3">
-                                    <ImageIcon className="w-5 h-5 text-gray-400" />
-                                    <span className="font-medium text-sm" style={{ color: '#1D1D1F' }}>{file.name}</span>
-                                    <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600">.{ext}</span>
-                                    {file.file_size && (
-                                      <span className="text-sm text-gray-400">
-                                        {file.file_size > 1048576
-                                          ? `${(file.file_size / 1048576).toFixed(1)} MB`
-                                          : `${Math.round(file.file_size / 1024)} KB`}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-6">
-                                    <a
-                                      href={fileUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                                    >
-                                      <EyeIcon className="w-4 h-4" />
-                                      Preview
-                                    </a>
-                                    <button
-                                      onClick={() => handleDownload(file)}
-                                      className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                                    >
-                                      <DownloadIcon className="w-4 h-4" />
-                                      Download
-                                    </button>
-                                  </div>
-                                </div>
-                                {/* Mobile */}
-                                <div className="lg:hidden">
-                                  <div className="flex items-start gap-3 mb-2">
-                                    <ImageIcon className="w-5 h-5 text-gray-400 mt-0.5 flex-shrink-0" />
-                                    <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="font-medium text-sm" style={{ color: '#1D1D1F' }}>{file.name}</span>
-                                        <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600">.{ext}</span>
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead>
+                              <tr className="border-b border-gray-100">
+                                <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+                                <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Uploaded</th>
+                                <th className="text-right py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                              {filtered.map(file => {
+                                const fileUrl = getFileUrl(file.file_path)
+                                const size = file.file_size > 1048576
+                                  ? `${(file.file_size / 1048576).toFixed(1)} MB`
+                                  : `${Math.round(file.file_size / 1024)} KB`
+                                return (
+                                  <tr key={file.id} className="hover:bg-gray-50 transition-colors">
+                                    <td className="py-3 pr-4">
+                                      <span className="text-sm font-medium" style={{ color: '#1D1D1F' }}>{file.name}</span>
+                                    </td>
+                                    <td className="py-3 pr-4">
+                                      <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600">{file.file_type || '—'}</span>
+                                    </td>
+                                    <td className="py-3 pr-4">
+                                      <span className="text-sm text-gray-500">{file.file_size ? size : '—'}</span>
+                                    </td>
+                                    <td className="py-3 pr-4">
+                                      <span className="text-sm text-gray-500">{new Date(file.created_at).toLocaleDateString()}</span>
+                                    </td>
+                                    <td className="py-3 text-right">
+                                      <div className="flex items-center justify-end gap-4">
+                                        <a href={fileUrl} target="_blank" rel="noopener noreferrer"
+                                          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors">
+                                          <EyeIcon className="w-4 h-4" />
+                                          Preview
+                                        </a>
+                                        <button onClick={() => handleDownload(file)}
+                                          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors">
+                                          <DownloadIcon className="w-4 h-4" />
+                                          Download
+                                        </button>
                                       </div>
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center gap-4 ml-8">
-                                    <a href={fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                                      <EyeIcon className="w-4 h-4" />
-                                      Preview
-                                    </a>
-                                    <button onClick={() => handleDownload(file)} className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors">
-                                      <DownloadIcon className="w-4 h-4" />
-                                      Download
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            )
-                          })}
+                                    </td>
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
                         </div>
                       )
                     })()}
@@ -1698,38 +1699,156 @@ function ProjectDetail({ user }) {
               )}
 
               {/* Permits Tab Content */}
-              {activeTab === 'permits' && (() => {
-                const PERMIT_STATUS_COLOR = {
-                  not_applied: '#6B7280',
-                  pending: '#EAB308',
-                  approved: '#22C55E',
-                  denied: '#EF4444',
-                  expired: '#F97316',
-                }
-                const PERMIT_STATUS_LABEL = {
-                  not_applied: 'Not Applied',
-                  pending: 'Pending',
-                  approved: 'Approved',
-                  denied: 'Denied',
-                  expired: 'Expired',
-                }
-                const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) : null
-                const uniqueTypes = ['All', ...Array.from(new Set(permits.map(p => p.permit_type).filter(Boolean)))]
-                const filteredPermits = permitTypeFilter === 'All' ? permits : permits.filter(p => p.permit_type === permitTypeFilter)
-                return (
+              {activeTab === 'permits' && (
                 <div className="p-6">
-                  {/* Permits & Violations Section */}
+                  {/* Upload Zone -- always first */}
+                  <div
+                    className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center mb-6 hover:border-gray-300 transition-colors cursor-pointer"
+                    onClick={() => document.getElementById('permit-file-input').click()}
+                    onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-gray-400', 'bg-gray-50') }}
+                    onDragLeave={(e) => { e.currentTarget.classList.remove('border-gray-400', 'bg-gray-50') }}
+                    onDrop={(e) => { e.preventDefault(); e.currentTarget.classList.remove('border-gray-400', 'bg-gray-50'); handleUploadFiles(e.dataTransfer.files, 'permits') }}
+                  >
+                    <p className="text-base font-medium text-gray-700 mb-1">Drag & Drop Files here</p>
+                    <p className="text-sm text-gray-400 mb-4">Files Supported -- .XLS, .PDF, .HEIC, .JPG, .PNG &middot; Max 10MB</p>
+                    {uploadError && <p className="text-sm text-red-500 mb-3">{uploadError}</p>}
+                    <button
+                      disabled={uploading}
+                      className="px-6 py-2 bg-transparent text-sm font-medium transition-colors disabled:opacity-50"
+                      style={{ color: '#111111', border: '1px solid #111111', borderRadius: '8px' }}
+                      onMouseEnter={(e) => { if (!uploading) { e.currentTarget.style.backgroundColor = '#111111'; e.currentTarget.style.color = '#FFFFFF' }}}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#111111' }}
+                    >
+                      {uploading ? 'Uploading...' : 'Upload'}
+                    </button>
+                    <input
+                      id="permit-file-input"
+                      type="file"
+                      accept=".xls,.xlsx,.pdf,.heic,.jpg,.jpeg,.png"
+                      className="hidden"
+                      multiple
+                      onChange={e => handleUploadFiles(e.target.files, 'permits')}
+                    />
+                  </div>
+
+                  {/* Uploaded Documents */}
+                  {(() => {
+                    const permitFiles = projectFiles.filter(f => f.folder === 'permits')
+                    const fileTypes = ['All', ...Array.from(new Set(permitFiles.map(f => f.file_type).filter(Boolean)))]
+                    const filtered = permitTypeFilter === 'All'
+                      ? permitFiles
+                      : permitFiles.filter(f => f.file_type === permitTypeFilter)
+                    return (
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-base font-semibold" style={{ color: '#1D1D1F' }}>Uploaded Documents</h3>
+                            {permitFiles.length > 0 && (
+                              <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: '#1D1D1F', color: '#FFFFFF' }}>
+                                {permitFiles.length}
+                              </span>
+                            )}
+                          </div>
+                          {permitFiles.length > 0 && (
+                            <div className="relative">
+                              <select
+                                value={permitTypeFilter}
+                                onChange={e => setPermitTypeFilter(e.target.value)}
+                                className="appearance-none border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F]"
+                                style={{ fontSize: '14px', paddingTop: '7px', paddingBottom: '7px', paddingLeft: '12px', paddingRight: '36px' }}
+                              >
+                                {fileTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                              </select>
+                              <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                                <ChevronDown size={14} className="text-gray-500" />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {permitFiles.length === 0 ? (
+                          <div className="py-12 text-center text-sm text-gray-400">No documents uploaded yet.</div>
+                        ) : filtered.length === 0 ? (
+                          <div className="py-8 text-center text-sm text-gray-400">No files match this filter.</div>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="w-full">
+                              <thead>
+                                <tr className="border-b border-gray-100">
+                                  <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                                  <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                  <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Size</th>
+                                  <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Uploaded</th>
+                                  <th className="text-right py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-50">
+                                {filtered.map(file => {
+                                  const fileUrl = getFileUrl(file.file_path)
+                                  const size = file.file_size > 1048576
+                                    ? `${(file.file_size / 1048576).toFixed(1)} MB`
+                                    : `${Math.round(file.file_size / 1024)} KB`
+                                  return (
+                                    <tr key={file.id} className="hover:bg-gray-50 transition-colors">
+                                      <td className="py-3 pr-4">
+                                        <span className="text-sm font-medium" style={{ color: '#1D1D1F' }}>{file.name}</span>
+                                      </td>
+                                      <td className="py-3 pr-4">
+                                        <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-gray-600">{file.file_type || '—'}</span>
+                                      </td>
+                                      <td className="py-3 pr-4">
+                                        <span className="text-sm text-gray-500">{file.file_size ? size : '—'}</span>
+                                      </td>
+                                      <td className="py-3 pr-4">
+                                        <span className="text-sm text-gray-500">{new Date(file.created_at).toLocaleDateString()}</span>
+                                      </td>
+                                      <td className="py-3 text-right">
+                                        <div className="flex items-center justify-end gap-4">
+                                          <a href={fileUrl} target="_blank" rel="noopener noreferrer"
+                                            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors">
+                                            <EyeIcon className="w-4 h-4" />
+                                            Preview
+                                          </a>
+                                          <button onClick={() => handleDownload(file)}
+                                            className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors">
+                                            <DownloadIcon className="w-4 h-4" />
+                                            Download
+                                          </button>
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
+
+
+
+              {/* Contractors Tab Content */}
+              {activeTab === 'contractors' && (
+                <div className="p-6">
+                  {/* Scope / Task Allocation Section */}
                   <div className="mb-8">
                     <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
-                      <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Permits & Violations</h3>
-                      <div className="relative w-full lg:w-auto">
+                      <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Scope</h3>
+                      <div className="relative">
                         <select
-                          value={permitTypeFilter}
-                          onChange={e => setPermitTypeFilter(e.target.value)}
-                          className="w-full lg:w-auto px-4 py-2 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F] appearance-none bg-white"
-                          style={{ fontSize: '16px', letterSpacing: '0.16px' }}
+                          value={scopeCompanyFilter}
+                          onChange={e => setScopeCompanyFilter(e.target.value)}
+                          className="appearance-none border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F]"
+                          style={{ fontSize: '14px', paddingTop: '8px', paddingBottom: '8px', paddingLeft: '14px', paddingRight: '40px' }}
                         >
-                          {uniqueTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                          <option value="All">All Companies</option>
+                          {projectCompanies.map(c => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
                         </select>
                         <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center">
                           <ChevronDown size={16} className="text-gray-500" />
@@ -1737,254 +1856,156 @@ function ProjectDetail({ user }) {
                       </div>
                     </div>
 
-                    {permitsLoading ? (
-                      <div className="py-12 text-center text-sm text-gray-400">Loading permits...</div>
-                    ) : filteredPermits.length === 0 ? (
-                      <div className="py-12 text-center text-sm text-gray-400">No permits found for this project.</div>
-                    ) : (
-                      <>
-                        {/* Permits Table - Desktop */}
-                        <div className="hidden lg:block overflow-x-auto">
-                          <table className="w-full">
-                            <thead>
-                              <tr className="border-b border-gray-100">
-                                <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Permit / Violation</th>
-                                <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Applied For Date</th>
-                                <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Approved Date</th>
-                                <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Expires</th>
-                                <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Document</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-50">
-                              {filteredPermits.map((permit) => {
-                                const statusColor = PERMIT_STATUS_COLOR[permit.status] || '#6B7280'
-                                const statusLabel = PERMIT_STATUS_LABEL[permit.status] || permit.status || 'Unknown'
-                                return (
-                                  <tr key={permit.id} className="hover:bg-gray-50 transition-colors">
-                                    <td className="py-3 pr-4">
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-sm font-medium" style={{ color: '#1D1D1F' }}>{permit.permit_type}</span>
-                                        {permit.permit_number && (
-                                          <span className="px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-600">#{permit.permit_number}</span>
-                                        )}
-                                      </div>
-                                    </td>
-                                    <td className="py-3 pr-4">
-                                      <span className="text-sm text-gray-600">{formatDate(permit.application_date) || <span className="text-gray-400">NA</span>}</span>
-                                    </td>
-                                    <td className="py-3 pr-4">
-                                      {permit.approval_date ? (
-                                        <span className="text-sm text-green-600">{formatDate(permit.approval_date)}</span>
-                                      ) : (
-                                        <span className="text-sm text-gray-400">NA</span>
-                                      )}
-                                    </td>
-                                    <td className="py-3 pr-4">
-                                      <span className="text-sm font-medium" style={{ color: statusColor }}>{statusLabel}</span>
-                                    </td>
-                                    <td className="py-3 pr-4">
-                                      {permit.expiration_date ? (
-                                        <span className="text-sm text-gray-600">{formatDate(permit.expiration_date)}</span>
-                                      ) : (
-                                        <span className="text-sm text-gray-400">NA</span>
-                                      )}
-                                    </td>
-                                    <td className="py-3">
-                                      {permit.document_url ? (
-                                        <a
-                                          href={permit.document_url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 transition-colors"
-                                        >
-                                          View
-                                          <LinkIcon className="w-4 h-4" />
-                                        </a>
-                                      ) : (
-                                        <span className="text-sm text-gray-400">NA</span>
-                                      )}
-                                    </td>
-                                  </tr>
-                                )
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
+                    {(() => {
+                      const scopeTasks = tasks.filter(t => {
+                        if (t.is_archived) return false
+                        if (scopeCompanyFilter === 'All') return true
+                        return t.contractor_company_id === scopeCompanyFilter
+                      })
 
-                        {/* Permits List - Mobile */}
-                        <div className="lg:hidden divide-y divide-gray-100">
-                          {filteredPermits.map((permit) => {
-                            const statusColor = PERMIT_STATUS_COLOR[permit.status] || '#6B7280'
-                            const statusLabel = PERMIT_STATUS_LABEL[permit.status] || permit.status || 'Unknown'
-                            return (
-                              <div key={permit.id} className="py-4">
-                                <div className="flex items-center justify-between mb-2">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium" style={{ color: '#1D1D1F' }}>{permit.permit_type}</span>
-                                    {permit.permit_number && (
-                                      <span className="px-1.5 py-0.5 bg-gray-100 rounded text-xs text-gray-600">#{permit.permit_number}</span>
-                                    )}
-                                  </div>
-                                  <span className="text-xs font-medium" style={{ color: statusColor }}>{statusLabel}</span>
-                                </div>
-                                <div className="flex items-center justify-between text-xs text-gray-500">
-                                  <span>Applied: {formatDate(permit.application_date) || 'NA'}</span>
-                                  {permit.approval_date && <span className="text-green-600">Approved: {formatDate(permit.approval_date)}</span>}
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </>
-                    )}
-                  </div>
+                      const getTier = (pct) => {
+                        const p = pct ?? 0
+                        if (p === 100) return { label: '100%', barColor: '#22C55E', textColor: '#166534' }
+                        if (p >= 30)   return { label: `${p}%`, barColor: '#EAB308', textColor: '#92400E' }
+                        return { label: p === 0 ? '0%' : `${p}%`, barColor: '#9CA3AF', textColor: '#374151' }
+                      }
 
-                  {/* Upload Section */}
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4" style={{ color: '#1D1D1F' }}>
-                      Upload Permit, Violation, Files, etc.
-                    </h3>
-                    <div 
-                      className="border-2 border-dashed border-gray-200 rounded-xl p-8 text-center hover:border-gray-300 transition-colors cursor-pointer"
-                      onClick={() => document.getElementById('permit-file-input').click()}
-                    >
-                      <p className="text-base font-medium text-gray-700 mb-2">
-                        Drag & Drop Files here
-                      </p>
-                      <p className="text-sm text-gray-500 mb-4">
-                        Files Supported - .XLS, .PDF, .HEIC, .JPG, .PNG
-                      </p>
-                      <button 
-                        className="px-6 py-2 bg-transparent text-sm font-medium transition-colors"
-                        style={{ 
-                          color: '#111111', 
-                          border: '1px solid #111111',
-                          borderRadius: '8px'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.backgroundColor = '#111111'
-                          e.currentTarget.style.color = '#FFFFFF'
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.backgroundColor = 'transparent'
-                          e.currentTarget.style.color = '#111111'
-                        }}
-                      >
-                        Upload
-                      </button>
-                      <p className="text-xs text-gray-400 mt-4">
-                        Max File Size: 10MB
-                      </p>
-                    </div>
-                    <input
-                      id="permit-file-input"
-                      type="file"
-                      accept=".xls,.xlsx,.pdf,.heic,.jpg,.jpeg,.png"
-                      className="hidden"
-                      multiple
-                    />
-                  </div>
-                </div>
-                )
-              })()}
+                      if (tasksLoading) return (
+                        <div className="py-12 text-center text-sm text-gray-400">Loading scope...</div>
+                      )
 
-              {/* Contractors Tab Content */}
-              {activeTab === 'contractors' && (
-                <div className="p-6">
-                  {/* Contractor Allocation Section */}
-                  <div className="mb-8">
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-4">
-                      <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Contractor Allocation</h3>
-                      <select 
-                        className="w-full lg:w-auto px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none bg-white"
-                        style={{ 
-                          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, 
-                          backgroundPosition: 'right 0.75rem center', 
-                          backgroundRepeat: 'no-repeat', 
-                          backgroundSize: '1.25em 1.25em',
-                          paddingRight: '2.5rem'
-                        }}
-                      >
-                        <option>Killowen Construction</option>
-                        <option>Lights N' Switches</option>
-                        <option>All Contractors</option>
-                      </select>
-                    </div>
+                      if (scopeTasks.length === 0) return (
+                        <div className="py-12 text-center text-sm text-gray-400">No tasks found for this project.</div>
+                      )
 
-                    {/* Allocation Table - Desktop */}
-                    <div className="hidden lg:block overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                          <tr className="border-b border-gray-100">
-                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Task & Details</th>
-                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Completed %</th>
-                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Contractor Amount</th>
-                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Net Amount</th>
-                            <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Download</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-50">
-                          {projectData.contractorAllocation.map((item) => (
-                            <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                              <td className="py-3">
-                                <span className="text-sm text-gray-900">{item.id} {item.task}</span>
-                              </td>
-                              <td className="py-3">
-                                <div className="flex items-center gap-2">
-                                  <span className={`text-sm ${item.completed === 100 ? 'text-green-600' : item.completed >= 50 ? 'text-yellow-600' : 'text-gray-500'}`}>
-                                    {item.completedLabel}
-                                  </span>
-                                  {item.completed > 0 && (
-                                    <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                      <div 
-                                        className="h-full rounded-full"
-                                        style={{ 
-                                          width: `${item.completed}%`,
-                                          backgroundColor: item.completed === 100 ? '#22C55E' : item.completed >= 50 ? '#EAB308' : '#9CA3AF'
-                                        }}
-                                      />
-                                    </div>
-                                  )}
-                                  {item.alert && <AlertIcon className="w-4 h-4 text-red-500" />}
-                                </div>
-                              </td>
-                              <td className="py-3">
-                                <span className="text-sm text-gray-600">${item.contractorAmount}</span>
-                              </td>
-                              <td className="py-3">
-                                <span className="text-sm text-gray-600">${item.netAmount}</span>
-                              </td>
-                              <td className="py-3">
-                                <button 
-                                  onClick={() => setReportModalOpen(true)}
-                                  className="text-sm text-blue-600 underline hover:text-blue-800"
-                                >
-                                  Download Report (.XLS)
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Allocation List - Mobile */}
-                    <div className="lg:hidden divide-y divide-gray-100">
-                      {projectData.contractorAllocation.map((item) => (
-                        <div key={item.id} className="py-3">
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm font-medium" style={{ color: '#1D1D1F' }}>{item.id} {item.task}</span>
-                            <span className={`text-xs ${item.completed === 100 ? 'text-green-600' : item.completed >= 50 ? 'text-yellow-600' : 'text-gray-500'}`}>
-                              {item.completedLabel}
-                            </span>
+                      return (
+                        <>
+                          {/* Desktop table */}
+                          <div className="hidden lg:block overflow-x-auto">
+                            <table className="w-full">
+                              <thead>
+                                <tr className="border-b border-gray-100">
+                                  <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Task</th>
+                                  <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Company</th>
+                                  <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned To</th>
+                                  <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Completed %</th>
+                                  <th className="text-right py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Update %</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-50">
+                                {scopeTasks.map(task => {
+                                  const tier = getTier(task.completion_percent)
+                                  const pct = task.completion_percent ?? 0
+                                  return (
+                                    <tr key={task.id} className="hover:bg-gray-50 transition-colors">
+                                      <td className="py-3 pr-4">
+                                        <span className="text-sm font-medium" style={{ color: '#1D1D1F' }}>{task.title}</span>
+                                      </td>
+                                      <td className="py-3 pr-4">
+                                        <div className="relative inline-block">
+                                          <select
+                                            value={task.contractor_company_id || ''}
+                                            onChange={e => updateTaskCompany(task.id, e.target.value)}
+                                            className="appearance-none text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F]"
+                                            style={{ paddingTop: '6px', paddingBottom: '6px', paddingLeft: '10px', paddingRight: '32px' }}
+                                          >
+                                            <option value="">Unassigned</option>
+                                            {projectCompanies.map(c => (
+                                              <option key={c.id} value={c.id}>{c.name}</option>
+                                            ))}
+                                          </select>
+                                          <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                                            <ChevronDown size={14} className="text-gray-400" />
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="py-3 pr-4">
+                                        <span className="text-sm text-gray-600">
+                                          {task.assigned_to_profile?.full_name || <span className="text-gray-400">Unassigned</span>}
+                                        </span>
+                                      </td>
+                                      <td className="py-3 pr-4">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-sm font-medium w-8" style={{ color: tier.textColor }}>{tier.label}</span>
+                                          <div className="w-16 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                            <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: tier.barColor }} />
+                                          </div>
+                                        </div>
+                                      </td>
+                                      <td className="py-3 text-right">
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          max="100"
+                                          defaultValue={pct}
+                                          onBlur={e => updateScopePercent(task.id, e.target.value)}
+                                          className="w-16 text-sm text-right border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F]"
+                                        />
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
                           </div>
-                          <div className="text-xs text-gray-500">${item.netAmount}</div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
 
+                          {/* Mobile list */}
+                          <div className="lg:hidden divide-y divide-gray-100">
+                            {scopeTasks.map(task => {
+                              const tier = getTier(task.completion_percent)
+                              const pct = task.completion_percent ?? 0
+                              return (
+                                <div key={task.id} className="py-4">
+                                  <div className="flex items-start justify-between gap-3 mb-3">
+                                    <div>
+                                      <p className="text-sm font-medium" style={{ color: '#1D1D1F' }}>{task.title}</p>
+                                      <p className="text-xs text-gray-500 mt-0.5">{task.assigned_to_profile?.full_name || 'Unassigned'}</p>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                                      <span className="text-xs font-medium" style={{ color: tier.textColor }}>{tier.label}</span>
+                                      <div className="w-12 h-2 bg-gray-100 rounded-full overflow-hidden">
+                                        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: tier.barColor }} />
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-3">
+                                    <div className="relative flex-1">
+                                      <select
+                                        value={task.contractor_company_id || ''}
+                                        onChange={e => updateTaskCompany(task.id, e.target.value)}
+                                        className="w-full appearance-none text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10"
+                                        style={{ paddingTop: '6px', paddingBottom: '6px', paddingLeft: '10px', paddingRight: '32px' }}
+                                      >
+                                        <option value="">Unassigned</option>
+                                        {projectCompanies.map(c => (
+                                          <option key={c.id} value={c.id}>{c.name}</option>
+                                        ))}
+                                      </select>
+                                      <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center">
+                                        <ChevronDown size={14} className="text-gray-400" />
+                                      </div>
+                                    </div>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      max="100"
+                                      defaultValue={pct}
+                                      onBlur={e => updateScopePercent(task.id, e.target.value)}
+                                      className="w-16 text-sm text-right border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10"
+                                    />
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+
+                          <div className="mt-4 pt-4 border-t border-gray-100">
+                            <span className="text-sm text-gray-500">{scopeTasks.length} task{scopeTasks.length !== 1 ? 's' : ''}</span>
+                          </div>
+                        </>
+                      )
+                    })()}
+                  </div>
                 </div>
               )}
               {/* Messages Tab Content */}
@@ -2006,213 +2027,108 @@ function ProjectDetail({ user }) {
             </div>
           </div>
 
-          {/* Scope Section - Only shown on Financials tab */}
-          {activeTab === 'financials' && (
-            <div 
-              className="bg-white mb-6"
-              style={{ borderRadius: '16px', boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)' }}
-            >
-              <div 
-                className="p-6 flex items-center justify-between cursor-pointer"
-                onClick={() => toggleSection('scope')}
-              >
-                <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>Scope</h3>
-                <ChevronUpIcon className={`w-5 h-5 text-gray-400 transition-transform ${expandedSections.scope ? '' : 'rotate-180'}`} />
-              </div>
-
-              {expandedSections.scope && (
-                <>
-                  {/* Scope Table - Desktop */}
-                  <div className="hidden lg:block overflow-x-auto border-t border-gray-100 px-6">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-gray-100">
-                          <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Task & Details</th>
-                          <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Contractor</th>
-                          <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Completed %</th>
-                          <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice Amount</th>
-                          <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Contractor Amount</th>
-                          <th className="text-left py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Download</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-50">
-                        {projectData.financials.scope.map((item) => (
-                          <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                            <td className="py-3">
-                              <span className="text-sm text-gray-900">{item.id} {item.task}</span>
-                            </td>
-                            <td className="py-3">
-                              <div className="flex items-center gap-1">
-                                <span className="text-sm text-gray-600">{item.contractor}</span>
-                                <ChevronDownIcon className="w-4 h-4 text-gray-400" />
-                              </div>
-                            </td>
-                            <td className="py-3">
-                              <div className="flex items-center gap-2">
-                                <span className={`text-sm ${item.completed === 100 ? 'text-green-600' : item.completed >= 50 ? 'text-yellow-600' : 'text-gray-600'}`}>
-                                  {item.completed === 100 ? '100%' : item.completed >= 50 ? '50-90%' : '0-49%'}
-                                </span>
-                                <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-                                  <div 
-                                    className="h-full rounded-full"
-                                    style={{ 
-                                      width: `${item.completed}%`,
-                                      backgroundColor: item.completed === 100 ? '#22C55E' : item.completed >= 50 ? '#EAB308' : '#9CA3AF'
-                                    }}
-                                  />
-                                </div>
-                                {item.alert && <AlertIcon className="w-4 h-4 text-red-500" />}
-                              </div>
-                            </td>
-                            <td className="py-3">
-                              <span className="text-sm text-gray-600">${item.invoiceAmount.toLocaleString()}.00</span>
-                            </td>
-                            <td className="py-3">
-                              <span className="text-sm text-gray-600">${item.contractorAmount.toLocaleString()}.00</span>
-                            </td>
-                            <td className="py-3">
-                              <button className="text-sm text-blue-600 underline hover:text-blue-800">Download Report</button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Scope List - Mobile */}
-                  <div className="lg:hidden divide-y divide-gray-100 border-t border-gray-100">
-                    {projectData.financials.scope.map((item) => (
-                      <div 
-                        key={item.id}
-                        className="flex items-center justify-between px-6 py-3"
-                      >
-                        <span className="text-sm text-gray-900">{item.id} {item.task}</span>
-                        <ChevronRightIcon className="w-5 h-5 text-gray-400" />
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Scope Pagination */}
-                  <div className="flex items-center justify-between p-6 border-t border-gray-100">
-                    <span className="text-sm text-gray-500">1 - 6 of 24</span>
-                    <div className="flex items-center gap-2">
-                      <select 
-                        className="px-2 py-1 border border-gray-200 rounded text-sm focus:outline-none"
-                        style={{ 
-                          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, 
-                          backgroundPosition: 'right 0.25rem center', 
-                          backgroundRepeat: 'no-repeat', 
-                          backgroundSize: '1em 1em',
-                          paddingRight: '1.5rem',
-                          appearance: 'none'
-                        }}
-                      >
-                        <option>1</option>
-                        <option>2</option>
-                        <option>3</option>
-                        <option>4</option>
-                      </select>
-                      <span className="text-sm text-gray-500">of 4 pages</span>
-                      <div className="flex items-center gap-1 ml-2">
-                        <button className="p-1 hover:bg-gray-100 rounded transition-colors">
-                          <ChevronLeftIcon className="w-4 h-4 text-gray-400" />
-                        </button>
-                        <button className="p-1 hover:bg-gray-100 rounded transition-colors">
-                          <ChevronRightIcon className="w-4 h-4 text-gray-400" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          )}
-
           {/* Contractor Cards - Only shown on Contractors tab */}
           {activeTab === 'contractors' && (
             <div className="space-y-4 mb-6">
-              {projectData.contractorsList.map((contractor) => (
-                <div 
-                  key={contractor.id}
-                  className="bg-white"
-                  style={{ borderRadius: '16px', boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)' }}
-                >
-                  {/* Contractor Header */}
-                  <div 
-                    className="p-6 flex items-center justify-between cursor-pointer"
-                    onClick={() => toggleContractor(contractor.id)}
+              {projectCompanies.length === 0 ? (
+                <div className="bg-white p-8 text-center" style={{ borderRadius: '16px', boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)' }}>
+                  <p className="text-sm text-gray-400">No companies assigned to this project yet. Use Edit Project to add companies.</p>
+                </div>
+              ) : projectCompanies.map((company) => {
+                const isGC = company.specialty === 'GC'
+                const specialtyColor = isGC
+                  ? { bg: '#1D1D1F', text: '#FFFFFF' }
+                  : { bg: '#FEF3C7', text: '#92400E' }
+                return (
+                  <div
+                    key={company.id}
+                    className="bg-white"
+                    style={{ borderRadius: '16px', boxShadow: '2px 4px 12px rgba(0, 0, 0, 0.08)' }}
                   >
-                    <div className="flex items-center gap-3">
-                      <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>{contractor.name}</h3>
-                      <div className="w-2.5 h-2.5 rounded-full bg-gray-300" />
-                      <span 
-                        className="px-2 py-0.5 rounded text-xs font-medium"
-                        style={{ 
-                          backgroundColor: contractor.specialty === 'GC' ? '#1D1D1F' : '#FEF3C7',
-                          color: contractor.specialty === 'GC' ? '#FFFFFF' : '#92400E'
-                        }}
-                      >
-                        {contractor.specialty === 'GC' ? '🔧 GC' : '⚡ ' + contractor.specialty}
-                      </span>
+                    {/* Card Header */}
+                    <div
+                      className="p-6 flex items-center justify-between cursor-pointer"
+                      onClick={() => toggleContractor(company.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-lg font-semibold" style={{ color: '#1D1D1F' }}>{company.name}</h3>
+                        <div className="w-2.5 h-2.5 rounded-full bg-gray-300" />
+                        {company.specialty && (
+                          <span
+                            className="px-2 py-0.5 rounded text-xs font-medium"
+                            style={{ backgroundColor: specialtyColor.bg, color: specialtyColor.text }}
+                          >
+                            {isGC ? '🔧 GC' : company.specialty}
+                          </span>
+                        )}
+                      </div>
+                      <ChevronUpIcon className={`w-5 h-5 text-gray-400 transition-transform ${expandedContractors[company.id] ? '' : 'rotate-180'}`} />
                     </div>
-                    <ChevronUpIcon className={`w-5 h-5 text-gray-400 transition-transform ${expandedContractors[contractor.id] ? '' : 'rotate-180'}`} />
-                  </div>
 
-                  {/* Contractor Details */}
-                  {expandedContractors[contractor.id] && (
-                    <div className="px-6 pb-6">
-                      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                        {/* Contact Info */}
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2 text-sm">
-                            <UserIcon className="w-4 h-4 text-gray-400" />
-                            <span className="text-gray-500">Point of Contact</span>
-                            <span className="text-gray-900">{contractor.contact}</span>
+                    {/* Card Details */}
+                    {expandedContractors[company.id] && (
+                      <div className="px-6 pb-6">
+                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                          <div className="space-y-2">
+                            {company.phone && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <PhoneIcon className="w-4 h-4 text-gray-400" />
+                                <span className="text-gray-500">Phone:</span>
+                                <span className="text-gray-900">{company.phone}</span>
+                              </div>
+                            )}
+                            {company.email && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <EmailIcon className="w-4 h-4 text-gray-400" />
+                                <span className="text-gray-500">Email:</span>
+                                <span className="text-gray-900">{company.email}</span>
+                              </div>
+                            )}
+                            {company.website && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <LinkIcon className="w-4 h-4 text-gray-400" />
+                                <span className="text-gray-500">Website:</span>
+                                <a href={company.website} target="_blank" rel="noopener noreferrer" className="text-gray-900 underline hover:text-gray-600">{company.website}</a>
+                              </div>
+                            )}
+                            {!company.phone && !company.email && !company.website && (
+                              <p className="text-sm text-gray-400">No contact details on file.</p>
+                            )}
                           </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <PhoneIcon className="w-4 h-4 text-gray-400" />
-                            <span className="text-gray-500">Phone:</span>
-                            <span className="text-gray-900">{contractor.phone}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm">
-                            <EmailIcon className="w-4 h-4 text-gray-400" />
-                            <span className="text-gray-500">Email:</span>
-                            <span className="text-gray-900">{contractor.email}</span>
-                          </div>
-                        </div>
 
-                        {/* Action Buttons */}
-                        <div className="flex flex-col gap-2 lg:items-end">
-                          {contractor.phone && (
-                            <a
-                              href={`tel:${contractor.phone}`}
-                              className="w-full lg:w-auto px-6 py-2 bg-transparent rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                              style={{ color: '#111111', border: '1px solid #E5E7EB' }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F9FAFB'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                            >
-                              <PhoneIcon className="w-4 h-4" />
-                              Call
-                            </a>
-                          )}
-                          {contractor.email && (
-                            <a
-                              href={`mailto:${contractor.email}`}
-                              className="w-full lg:w-auto px-6 py-2 bg-transparent rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                              style={{ color: '#111111', border: '1px solid #E5E7EB' }}
-                              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F9FAFB'}
-                              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                            >
-                              <EmailIcon className="w-4 h-4" />
-                              Send Email
-                            </a>
-                          )}
+                          {/* Action Buttons */}
+                          <div className="flex flex-col gap-2 lg:items-end">
+                            {company.phone && (
+                              <a
+                                href={`tel:${company.phone}`}
+                                className="w-full lg:w-auto px-6 py-2 bg-transparent rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                                style={{ color: '#111111', border: '1px solid #E5E7EB' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F9FAFB'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                <PhoneIcon className="w-4 h-4" />
+                                Call
+                              </a>
+                            )}
+                            {company.email && (
+                              <a
+                                href={`mailto:${company.email}`}
+                                className="w-full lg:w-auto px-6 py-2 bg-transparent rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                                style={{ color: '#111111', border: '1px solid #E5E7EB' }}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F9FAFB'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                              >
+                                <EmailIcon className="w-4 h-4" />
+                                Send Email
+                              </a>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
 
@@ -2371,6 +2287,9 @@ function ProjectDetail({ user }) {
         project={project}
         onSuccess={(updated) => {
           setProject(updated)
+          getProjectCompanies(projectId).then(companies => {
+            setProjectCompanies(companies || [])
+          })
         }}
       />
 

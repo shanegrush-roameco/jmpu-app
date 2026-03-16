@@ -1,12 +1,14 @@
 // src/components/modals/EditProjectModal.jsx
 // Modal for editing an existing project
-// Pre-populates from live project record, adds Status field
+// Pre-populates from live project record, adds Status field and company assignment
 // Mirrors CreateProjectModal UX exactly
 // ============================================================================
 
 import { useState, useEffect } from 'react';
 import { Close, ChevronDown } from '@carbon/icons-react';
 import { updateProject } from '../../hooks/useProjects';
+import { useCompanies, getProjectCompanies, setProjectCompanies } from '../../hooks/useCompanies';
+import CompanyCombobox from '../CompanyCombobox';
 
 const US_STATES = [
   { value: 'AL', label: 'Alabama' }, { value: 'AK', label: 'Alaska' },
@@ -37,9 +39,9 @@ const US_STATES = [
 ];
 
 const PROJECT_STATUSES = [
-  { value: 'active',      label: 'Active' },
-  { value: 'completed',   label: 'Complete' },
-  { value: 'cancelled',   label: 'Cancelled' },
+  { value: 'active',    label: 'Active' },
+  { value: 'completed', label: 'Complete' },
+  { value: 'cancelled', label: 'Cancelled' },
 ];
 
 const inputBase  = 'w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F]';
@@ -56,6 +58,9 @@ function ChevronIcon() {
 }
 
 export default function EditProjectModal({ isOpen, onClose, onSuccess, project }) {
+  const { companies } = useCompanies();
+  const [selectedCompanies, setSelectedCompanies] = useState([]);
+
   const [formData, setFormData] = useState({
     name:          '',
     asset_number:  '',
@@ -67,10 +72,10 @@ export default function EditProjectModal({ isOpen, onClose, onSuccess, project }
     status:        'active',
   });
 
-  const [errors, setErrors]         = useState({});
+  const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Pre-populate when project prop changes or modal opens
+  // Pre-populate form and load existing company assignments
   useEffect(() => {
     if (isOpen && project) {
       setFormData({
@@ -80,12 +85,15 @@ export default function EditProjectModal({ isOpen, onClose, onSuccess, project }
         city:          project.city          || '',
         state:         project.state         || 'MI',
         zip_code:      project.zip_code      || '',
-        start_date:    project.start_date
-          ? project.start_date.slice(0, 10)
-          : '',
+        start_date:    project.start_date ? project.start_date.slice(0, 10) : '',
         status:        project.status        || 'active',
       });
       setErrors({});
+
+      // Load existing company assignments
+      getProjectCompanies(project.id).then(existing => {
+        setSelectedCompanies(existing || []);
+      });
     }
   }, [isOpen, project]);
 
@@ -132,6 +140,10 @@ export default function EditProjectModal({ isOpen, onClose, onSuccess, project }
         status:        formData.status,
       };
       const updated = await updateProject(project.id, updates);
+
+      // Sync company assignments (delete + reinsert via hook)
+      await setProjectCompanies(project.id, selectedCompanies.map(c => c.id));
+
       onSuccess?.(updated);
       onClose();
     } catch (error) {
@@ -147,10 +159,8 @@ export default function EditProjectModal({ isOpen, onClose, onSuccess, project }
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div
-        className="relative bg-white rounded-2xl w-full max-w-md overflow-hidden"
-        style={{ boxShadow: '2px 4px 12px rgba(0,0,0,0.08)' }}
-      >
+      <div className="relative bg-white rounded-2xl w-full max-w-md overflow-hidden" style={{ boxShadow: '2px 4px 12px rgba(0,0,0,0.08)' }}>
+
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <h2 className="text-lg font-semibold text-[#1D1D1F]">Edit Project</h2>
@@ -169,57 +179,46 @@ export default function EditProjectModal({ isOpen, onClose, onSuccess, project }
             )}
 
             <div>
-              <label className={labelBase}>
-                Customer <span style={{ color: '#E8500A' }}>*</span>
-              </label>
-              <input
-                type="text" name="name" value={formData.name} onChange={handleChange}
-                placeholder="Name" autoFocus
-                className={errors.name ? inputError : inputBase} style={inputStyle}
-              />
+              <label className={labelBase}>Customer <span style={{ color: '#E8500A' }}>*</span></label>
+              <input type="text" name="name" value={formData.name} onChange={handleChange}
+                placeholder="Name" autoFocus className={errors.name ? inputError : inputBase} style={inputStyle} />
               {errors.name && <p className="mt-1 text-sm text-red-500">{errors.name}</p>}
             </div>
 
             <div>
               <label className={labelBase}>Asset #</label>
-              <input
-                type="text" name="asset_number" value={formData.asset_number} onChange={handleChange}
-                placeholder="XXXXXXXXXX"
-                className={inputBase} style={inputStyle}
+              <input type="text" name="asset_number" value={formData.asset_number} onChange={handleChange}
+                placeholder="XXXXXXXXXX" className={inputBase} style={inputStyle} />
+            </div>
+
+            <div>
+              <label className={labelBase}>Companies</label>
+              <CompanyCombobox
+                companies={companies}
+                selected={selectedCompanies}
+                onChange={setSelectedCompanies}
               />
             </div>
 
             <div>
-              <label className={labelBase}>
-                Address <span style={{ color: '#E8500A' }}>*</span>
-              </label>
-              <input
-                type="text" name="address_line1" value={formData.address_line1} onChange={handleChange}
-                placeholder="999 Road Rd."
-                className={errors.address_line1 ? inputError : inputBase} style={inputStyle}
-              />
+              <label className={labelBase}>Address <span style={{ color: '#E8500A' }}>*</span></label>
+              <input type="text" name="address_line1" value={formData.address_line1} onChange={handleChange}
+                placeholder="999 Road Rd." className={errors.address_line1 ? inputError : inputBase} style={inputStyle} />
               {errors.address_line1 && <p className="mt-1 text-sm text-red-500">{errors.address_line1}</p>}
             </div>
 
             <div>
-              <label className={labelBase}>
-                City <span style={{ color: '#E8500A' }}>*</span>
-              </label>
-              <input
-                type="text" name="city" value={formData.city} onChange={handleChange}
-                placeholder="City Name"
-                className={errors.city ? inputError : inputBase} style={inputStyle}
-              />
+              <label className={labelBase}>City <span style={{ color: '#E8500A' }}>*</span></label>
+              <input type="text" name="city" value={formData.city} onChange={handleChange}
+                placeholder="City Name" className={errors.city ? inputError : inputBase} style={inputStyle} />
               {errors.city && <p className="mt-1 text-sm text-red-500">{errors.city}</p>}
             </div>
 
             <div>
               <label className={labelBase}>State</label>
               <div className="relative">
-                <select
-                  name="state" value={formData.state} onChange={handleChange}
-                  className={`${inputBase} appearance-none pr-10 bg-white`} style={inputStyle}
-                >
+                <select name="state" value={formData.state} onChange={handleChange}
+                  className={`${inputBase} appearance-none pr-10 bg-white`} style={inputStyle}>
                   {US_STATES.map((s) => (
                     <option key={s.value} value={s.value}>{s.label}</option>
                   ))}
@@ -229,32 +228,23 @@ export default function EditProjectModal({ isOpen, onClose, onSuccess, project }
             </div>
 
             <div>
-              <label className={labelBase}>
-                ZIP <span style={{ color: '#E8500A' }}>*</span>
-              </label>
-              <input
-                type="text" name="zip_code" value={formData.zip_code} onChange={handleChange}
-                placeholder="99999"
-                className={errors.zip_code ? inputError : inputBase} style={inputStyle}
-              />
+              <label className={labelBase}>ZIP <span style={{ color: '#E8500A' }}>*</span></label>
+              <input type="text" name="zip_code" value={formData.zip_code} onChange={handleChange}
+                placeholder="99999" className={errors.zip_code ? inputError : inputBase} style={inputStyle} />
               {errors.zip_code && <p className="mt-1 text-sm text-red-500">{errors.zip_code}</p>}
             </div>
 
             <div>
               <label className={labelBase}>Start Date</label>
-              <input
-                type="date" name="start_date" value={formData.start_date} onChange={handleChange}
-                className={inputBase} style={inputStyle}
-              />
+              <input type="date" name="start_date" value={formData.start_date} onChange={handleChange}
+                className={inputBase} style={inputStyle} />
             </div>
 
             <div>
               <label className={labelBase}>Status</label>
               <div className="relative">
-                <select
-                  name="status" value={formData.status} onChange={handleChange}
-                  className={`${inputBase} appearance-none pr-10 bg-white`} style={inputStyle}
-                >
+                <select name="status" value={formData.status} onChange={handleChange}
+                  className={`${inputBase} appearance-none pr-10 bg-white`} style={inputStyle}>
                   {PROJECT_STATUSES.map((s) => (
                     <option key={s.value} value={s.value}>{s.label}</option>
                   ))}
@@ -266,19 +256,15 @@ export default function EditProjectModal({ isOpen, onClose, onSuccess, project }
 
           {/* Footer */}
           <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50">
-            <button
-              type="button" onClick={onClose}
+            <button type="button" onClick={onClose}
               className="px-5 py-2.5 text-sm font-medium rounded-xl transition-colors"
               style={{ color: '#111111', border: '1px solid #111111', backgroundColor: 'transparent' }}
               onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#111111'; e.currentTarget.style.color = '#FFFFFF'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#111111'; }}
-            >
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#111111'; }}>
               Cancel
             </button>
-            <button
-              type="submit" disabled={isSubmitting}
-              className="px-5 py-2.5 text-sm font-medium text-white bg-[#1D1D1F] hover:bg-[#1D1D1F]/90 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
+            <button type="submit" disabled={isSubmitting}
+              className="px-5 py-2.5 text-sm font-medium text-white bg-[#1D1D1F] hover:bg-[#1D1D1F]/90 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
               {isSubmitting ? 'Saving...' : 'Save Changes'}
             </button>
           </div>
