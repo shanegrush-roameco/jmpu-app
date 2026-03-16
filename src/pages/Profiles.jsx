@@ -291,9 +291,6 @@ function Profiles({ user }) {
         profile_type: formData.profile_type,
       })
 
-      // Update notification preferences separately
-      await updateNotificationPreferences(selectedProfileId, formData.notification_preferences)
-
       setSaveSuccess(true)
       refetchProfile()
       refetchProfiles()
