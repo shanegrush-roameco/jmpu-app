@@ -1,14 +1,13 @@
-// src/components/modals/EditProjectModal.jsx
-// Modal for editing an existing project
-// Pre-populates from live project record, adds Status field and company assignment
-// Mirrors CreateProjectModal UX exactly
+// src/components/modals/CreateProjectModal.jsx
+// Modal for creating new projects
+// Matches approved design: Customer, Asset #, Companies, Address, City, State, ZIP, Date Received
 // ============================================================================
 
 import { useState, useEffect } from 'react';
 import { Close, ChevronDown } from '@carbon/icons-react';
-import { updateProject } from '../../hooks/useProjects';
-import { useCompanies, getProjectCompanies, setProjectCompanies } from '../../hooks/useCompanies';
-import CompanyCombobox from '../CompanyCombobox.jsx';
+import { createProject } from '../../hooks/useProjects';
+import { useCompanies, setProjectCompanies } from '../../hooks/useCompanies';
+import CompanyCombobox from '../CompanyCombobox';
 
 const US_STATES = [
   { value: 'AL', label: 'Alabama' }, { value: 'AK', label: 'Alaska' },
@@ -38,16 +37,10 @@ const US_STATES = [
   { value: 'WI', label: 'Wisconsin' }, { value: 'WY', label: 'Wyoming' },
 ];
 
-const PROJECT_STATUSES = [
-  { value: 'active',    label: 'Active' },
-  { value: 'completed', label: 'Complete' },
-  { value: 'cancelled', label: 'Cancelled' },
-];
-
-const inputBase  = 'w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F]';
+const inputBase = 'w-full px-4 py-2 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F]';
 const inputError = 'w-full px-4 py-2 rounded-xl border border-red-300 focus:outline-none focus:ring-2 focus:ring-[#1D1D1F]/10 focus:border-[#1D1D1F]';
 const inputStyle = { fontSize: '16px', letterSpacing: '0.16px' };
-const labelBase  = 'block text-sm font-medium text-gray-700 mb-1.5';
+const labelBase = 'block text-sm font-medium text-gray-700 mb-1.5';
 
 function ChevronIcon() {
   return (
@@ -57,47 +50,23 @@ function ChevronIcon() {
   );
 }
 
-export default function EditProjectModal({ isOpen, onClose, onSuccess, project }) {
+export default function CreateProjectModal({ isOpen, onClose, onSuccess }) {
   const { companies } = useCompanies();
   const [selectedCompanies, setSelectedCompanies] = useState([]);
 
   const [formData, setFormData] = useState({
-    name:          '',
-    asset_number:  '',
+    name: '',
+    asset_number: '',
     address_line1: '',
-    city:          '',
-    state:         'MI',
-    zip_code:      '',
-    start_date:    '',
-    status:        'active',
+    city: '',
+    state: 'MI',
+    zip_code: '',
+    date_received: '',
   });
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Pre-populate form and load existing company assignments
-  useEffect(() => {
-    if (isOpen && project) {
-      setFormData({
-        name:          project.name          || '',
-        asset_number:  project.asset_number  || '',
-        address_line1: project.address_line1 || '',
-        city:          project.city          || '',
-        state:         project.state         || 'MI',
-        zip_code:      project.zip_code      || '',
-        start_date:    project.start_date ? project.start_date.slice(0, 10) : '',
-        status:        project.status        || 'active',
-      });
-      setErrors({});
-
-      // Load existing company assignments
-      getProjectCompanies(project.id).then(existing => {
-        setSelectedCompanies(existing || []);
-      });
-    }
-  }, [isOpen, project]);
-
-  // ESC to close
   useEffect(() => {
     const handleKeyDown = (e) => { if (e.key === 'Escape') onClose(); };
     if (isOpen) document.addEventListener('keydown', handleKeyDown);
@@ -112,9 +81,9 @@ export default function EditProjectModal({ isOpen, onClose, onSuccess, project }
 
   const validate = () => {
     const newErrors = {};
-    if (!formData.name.trim())          newErrors.name          = 'Customer name is required';
+    if (!formData.name.trim()) newErrors.name = 'Customer name is required';
     if (!formData.address_line1.trim()) newErrors.address_line1 = 'Address is required';
-    if (!formData.city.trim())          newErrors.city          = 'City is required';
+    if (!formData.city.trim()) newErrors.city = 'City is required';
     if (!formData.zip_code.trim()) {
       newErrors.zip_code = 'ZIP code is required';
     } else if (!/^\d{5}(-\d{4})?$/.test(formData.zip_code)) {
@@ -129,26 +98,29 @@ export default function EditProjectModal({ isOpen, onClose, onSuccess, project }
     if (!validate()) return;
     setIsSubmitting(true);
     try {
-      const updates = {
-        name:          formData.name.trim(),
-        asset_number:  formData.asset_number.trim() || null,
+      const projectData = {
+        name: formData.name.trim(),
+        asset_number: formData.asset_number.trim() || null,
         address_line1: formData.address_line1.trim(),
-        city:          formData.city.trim(),
-        state:         formData.state,
-        zip_code:      formData.zip_code.trim(),
-        start_date:    formData.start_date || null,
-        status:        formData.status,
+        city: formData.city.trim(),
+        state: formData.state,
+        zip_code: formData.zip_code.trim(),
+        date_received: formData.date_received || null,
+        status: 'planning',
       };
-      const updated = await updateProject(project.id, updates);
+      const newProject = await createProject(projectData);
 
-      // Sync company assignments (delete + reinsert via hook)
-      await setProjectCompanies(project.id, selectedCompanies.map(c => c.id));
+      if (selectedCompanies.length > 0 && newProject?.id) {
+        await setProjectCompanies(newProject.id, selectedCompanies.map(c => c.id));
+      }
 
-      onSuccess?.(updated);
+      onSuccess?.(newProject);
       onClose();
+      setFormData({ name: '', asset_number: '', address_line1: '', city: '', state: 'MI', zip_code: '', date_received: '' });
+      setSelectedCompanies([]);
     } catch (error) {
-      console.error('Error updating project:', error);
-      setErrors({ submit: error.message || 'Failed to save changes' });
+      console.error('Error creating project:', error);
+      setErrors({ submit: error.message || 'Failed to create project' });
     } finally {
       setIsSubmitting(false);
     }
@@ -163,7 +135,7 @@ export default function EditProjectModal({ isOpen, onClose, onSuccess, project }
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-          <h2 className="text-lg font-semibold text-[#1D1D1F]">Edit Project</h2>
+          <h2 className="text-lg font-semibold text-[#1D1D1F]">New Project</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
             <Close size={20} className="text-gray-500" />
           </button>
@@ -173,9 +145,7 @@ export default function EditProjectModal({ isOpen, onClose, onSuccess, project }
         <form onSubmit={handleSubmit}>
           <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
             {errors.submit && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
-                {errors.submit}
-              </div>
+              <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">{errors.submit}</div>
             )}
 
             <div>
@@ -235,22 +205,9 @@ export default function EditProjectModal({ isOpen, onClose, onSuccess, project }
             </div>
 
             <div>
-              <label className={labelBase}>Start Date</label>
-              <input type="date" name="start_date" value={formData.start_date} onChange={handleChange}
+              <label className={labelBase}>Date Received</label>
+              <input type="date" name="date_received" value={formData.date_received} onChange={handleChange}
                 className={inputBase} style={inputStyle} />
-            </div>
-
-            <div>
-              <label className={labelBase}>Status</label>
-              <div className="relative">
-                <select name="status" value={formData.status} onChange={handleChange}
-                  className={`${inputBase} appearance-none pr-10 bg-white`} style={inputStyle}>
-                  {PROJECT_STATUSES.map((s) => (
-                    <option key={s.value} value={s.value}>{s.label}</option>
-                  ))}
-                </select>
-                <ChevronIcon />
-              </div>
             </div>
           </div>
 
@@ -265,7 +222,7 @@ export default function EditProjectModal({ isOpen, onClose, onSuccess, project }
             </button>
             <button type="submit" disabled={isSubmitting}
               className="px-5 py-2.5 text-sm font-medium text-white bg-[#1D1D1F] hover:bg-[#1D1D1F]/90 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-              {isSubmitting ? 'Saving...' : 'Save Changes'}
+              {isSubmitting ? 'Creating...' : 'Create Project'}
             </button>
           </div>
         </form>
