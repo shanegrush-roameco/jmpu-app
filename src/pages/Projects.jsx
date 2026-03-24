@@ -250,7 +250,7 @@ function Projects({ user }) {
             <table className="w-full">
               <thead>
                 <tr className="border-t border-gray-100">
-                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Project #</th>
+                  <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Asset #</th>
                   <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
                   <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                   <th className="text-left py-3 px-6 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
@@ -267,7 +267,7 @@ function Projects({ user }) {
                     <td className="py-4 px-6">
                       <div>
                         <span className="text-sm font-medium text-gray-900 underline">{project.name}</span>
-                        <span className="block text-xs text-gray-400">{project.project_number}</span>
+                        <span className="block text-xs text-gray-400">{project.asset_number}</span>
                       </div>
                     </td>
                     <td className="py-4 px-6">
@@ -308,7 +308,7 @@ function Projects({ user }) {
               >
                 <div>
                   <span className="text-sm font-medium text-gray-900 underline">{project.name}</span>
-                  <span className="block text-xs text-gray-400">{project.project_number}</span>
+                  <span className="block text-xs text-gray-400">{project.asset_number}</span>
                 </div>
                 <ChevronRightIcon className="w-5 h-5 text-gray-400" />
               </div>

@@ -528,6 +528,7 @@ function ProjectDetail({ user }) {
   }, [searchParams])
 
   const [editModalOpen, setEditModalOpen] = useState(false)
+  const [showNewTaskModal, setShowNewTaskModal] = useState(false)
   const [showGantt, setShowGantt] = useState(false)
   const [viewTask, setViewTask] = useState(null)
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
@@ -965,9 +966,16 @@ function ProjectDetail({ user }) {
               >
                 <ChevronLeftIcon className="w-5 h-5 text-gray-500" />
               </button>
-              <h2 className="text-xl lg:text-2xl font-semibold" style={{ color: '#1D1D1F' }}>
-                {project?.name || '...'} {project?.project_number ? `#${project.project_number}` : ''}
-              </h2>
+              <div>
+                <h2 className="text-xl lg:text-2xl font-semibold" style={{ color: '#1D1D1F' }}>
+                  {project?.name || '...'}
+                </h2>
+                {(project?.address_line1 || project?.asset_number) && (
+                  <p className="text-sm text-gray-400 mt-0.5">
+                    {project?.address_line1 || `#${project?.asset_number}`}
+                  </p>
+                )}
+              </div>
               {/* Avatar on desktop */}
               <div className="hidden lg:flex items-center gap-2 ml-2">
                 <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-medium">
@@ -978,39 +986,44 @@ function ProjectDetail({ user }) {
             
             {/* Action Buttons */}
             <div className="flex flex-col lg:flex-row gap-3 w-full lg:w-auto">
-              {activeTab === 'financials' ? (
-                null
-              ) : activeTab === 'permits' ? (
-                <button 
+              {/* New Task -- always present, always primary */}
+              <button
+                onClick={() => setShowNewTaskModal(true)}
+                className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
+                style={{ backgroundColor: '#1D1D1F' }}
+              >
+                New Task
+              </button>
+
+              {/* Tab-specific secondary buttons */}
+              {activeTab === 'permits' && (
+                <button
                   onClick={() => setAddPermitModalOpen(true)}
-                  className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
-                  style={{ backgroundColor: '#1D1D1F' }}
+                  className="w-full lg:w-auto px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
+                  style={{ color: '#111111', border: '1px solid #111111' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#111111'; e.currentTarget.style.color = '#FFFFFF' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#111111' }}
                 >
                   Add Permit/Violation
                 </button>
-              ) : activeTab === 'contractors' ? (
-                null
-              ) : (
+              )}
+              {(activeTab === 'overview' || activeTab === 'messages' || activeTab === 'files' || activeTab === 'contacts') && (
                 <>
-                  <button 
+                  <button
                     onClick={() => setEditModalOpen(true)}
-                    className="w-full lg:w-auto px-5 py-2.5 rounded-[8px] text-sm font-medium text-white hover:opacity-90 transition-colors"
-                    style={{ backgroundColor: '#1D1D1F' }}
+                    className="w-full lg:w-auto px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
+                    style={{ color: '#111111', border: '1px solid #111111' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#111111'; e.currentTarget.style.color = '#FFFFFF' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#111111' }}
                   >
                     Edit Project
                   </button>
-                  <button 
+                  <button
                     onClick={() => setAiSummaryModalOpen(true)}
                     className="w-full lg:w-auto px-5 py-2.5 bg-transparent rounded-[8px] text-sm font-medium transition-colors"
                     style={{ color: '#111111', border: '1px solid #111111' }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#111111'
-                      e.currentTarget.style.color = '#FFFFFF'
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent'
-                      e.currentTarget.style.color = '#111111'
-                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#111111'; e.currentTarget.style.color = '#FFFFFF' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#111111' }}
                   >
                     AI Summary
                   </button>
@@ -2322,6 +2335,17 @@ function ProjectDetail({ user }) {
         task={viewTask}
         projectId={projectId}
         onSuccess={() => { setViewTask(null); refetchTasks(); }}
+      />
+
+      {/* New Task Modal -- project-scoped */}
+      <TaskModal
+        isOpen={showNewTaskModal}
+        onClose={() => setShowNewTaskModal(false)}
+        projectId={projectId}
+        onSuccess={() => {
+          setShowNewTaskModal(false)
+          refetchTasks()
+        }}
       />
 
       {/* Edit Project Modal */}

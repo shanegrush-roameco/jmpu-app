@@ -330,7 +330,7 @@ function StatsCards({ projects, onCardClick }) {
   }, [projects])
 
   const cards = [
-    { label: 'Total Projects', value: counts.total, dot: null, filterStatus: null, segments: [{ pct: counts.total ? (counts.inProgress / counts.total) * 100 : 0, color: '#22C55E' }, { pct: counts.total ? (counts.atRisk / counts.total) * 100 : 0, color: '#EAB308' }] },
+    { label: 'Total Projects', value: counts.total, dot: null, filterStatus: 'all', segments: [{ pct: counts.total ? (counts.inProgress / counts.total) * 100 : 0, color: '#22C55E' }, { pct: counts.total ? (counts.atRisk / counts.total) * 100 : 0, color: '#EAB308' }] },
     { label: 'In Progress', value: counts.inProgress, dot: '#22C55E', filterStatus: 'in_progress', segments: [{ pct: counts.total ? (counts.inProgress / counts.total) * 100 : 0, color: '#22C55E' }] },
     { label: 'At Risk', value: counts.atRisk, dot: '#EAB308', filterStatus: 'at_risk', segments: [{ pct: counts.total ? (counts.atRisk / counts.total) * 100 : 0, color: '#EAB308' }] },
     { label: 'Completed', value: counts.completed, dot: '#3B82F6', filterStatus: 'completed', segments: [{ pct: counts.total ? (counts.completed / counts.total) * 100 : 0, color: '#3B82F6' }] },
@@ -596,7 +596,13 @@ function Dashboard({ user }) {
     refetchTasks()
   }, [refetchTasks])
 
-  const handleCardClick = (filterStatus) => navigate('/projects', { state: { statusFilter: filterStatus } })
+  const handleCardClick = (filterStatus) => {
+    if (filterStatus === 'all') {
+      navigate('/projects')
+    } else {
+      navigate('/projects', { state: { statusFilter: filterStatus } })
+    }
+  }
   const handleNavigateToProject = (id) => navigate(`/projects/${id}`)
   const firstName = profile?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there'
 

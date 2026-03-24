@@ -195,7 +195,7 @@ export default function TaskModal({
                     <option value="">Select a project...</option>
                     {projects?.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.name} {p.project_number ? `(${p.project_number})` : ''}
+                        {p.name}{p.address_line1 ? ` — ${p.address_line1}` : p.asset_number ? ` (#${p.asset_number})` : ''}
                       </option>
                     ))}
                   </select>
