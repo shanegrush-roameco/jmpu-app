@@ -8,6 +8,8 @@ import { useEffect, useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { supabase } from './lib/supabase'
 import Login from './pages/Login'
+import Privacy from './pages/Privacy'
+import EULA from './pages/EULA'
 import Onboarding from './pages/Onboarding'
 import SetPassword from './pages/SetPassword'
 import Dashboard from './pages/Dashboard'
@@ -115,6 +117,10 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public legal pages -- no auth required */}
+        <Route path="/privacy" element={<Privacy />} />
+        <Route path="/eula" element={<EULA />} />
+
         {/* Public route */}
         <Route 
           path="/login" 

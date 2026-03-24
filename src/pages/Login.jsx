@@ -167,6 +167,17 @@ function Login() {
               By logging into this system, I expressly consent to allow the company to monitor, intercept, record, and search any communications or data transiting, travelling to and from, or stored on this information system at any time and for any lawful purpose.
             </p>
 
+            {/* Legal Links */}
+            <div className="flex items-center justify-center gap-4 mt-4">
+              <a href="/privacy" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                Privacy Policy
+              </a>
+              <span className="text-xs text-gray-300">•</span>
+              <a href="/eula" className="text-xs text-gray-400 hover:text-gray-600 transition-colors">
+                Terms of Use
+              </a>
+            </div>
+
             {/* Join Link */}
             <p className="text-center mt-6">
               <button
